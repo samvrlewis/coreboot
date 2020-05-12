@@ -10,6 +10,7 @@
 #include <program_loading.h>
 #include <symbols.h>
 #include <timestamp.h>
+#include <mainboard/ti/beaglebone/leds.h>
 
 DECLARE_OPTIONAL_REGION(timestamp);
 
@@ -43,6 +44,8 @@ static void bootblock_main_with_timestamp(uint64_t base_timestamp,
 
 	bootblock_soc_early_init();
 	bootblock_mainboard_early_init();
+	bootblock_soc_init();
+	bootblock_mainboard_init();
 
 	if (CONFIG(USE_OPTION_TABLE))
 		sanitize_cmos();
@@ -55,8 +58,25 @@ static void bootblock_main_with_timestamp(uint64_t base_timestamp,
 		exception_init();
 	}
 
-	bootblock_soc_init();
-	bootblock_mainboard_init();
+	beaglebone_leds_set(BEAGLEBONE_LED_USR0, 1);
+	beaglebone_leds_set(BEAGLEBONE_LED_USR1, 0);
+	beaglebone_leds_set(BEAGLEBONE_LED_USR2, 0);
+	beaglebone_leds_set(BEAGLEBONE_LED_USR3, 0);
+
+
+	uint32_t val=0;
+	for (int i=0; i<500000 ; i++)
+	{
+		beaglebone_leds_set(BEAGLEBONE_LED_USR0, val);
+
+		if (i%100000 == 0)
+		{
+			val = !val;
+		}
+	}
+
+
+	printk(BIOS_NOTICE, "I'm about to run the rom stage\n");
 
 	timestamp_add_now(TS_END_BOOTBLOCK);
 
