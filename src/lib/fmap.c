@@ -35,9 +35,9 @@ static int check_signature(const struct fmap *fmap)
 
 static void report(const struct fmap *fmap)
 {
-	print_once(BIOS_DEBUG, "FMAP: Found \"%s\" version %d.%d at %#x.\n",
+	printk(BIOS_DEBUG, "FMAP: Found \"%s\" version %d.%d at %#x.\n",
 	       fmap->name, fmap->ver_major, fmap->ver_minor, FMAP_OFFSET);
-	print_once(BIOS_DEBUG, "FMAP: base = %#llx size = %#x #areas = %d\n",
+	printk(BIOS_DEBUG, "FMAP: base = %#llx size = %#x #areas = %d\n",
 	       (long long)fmap->base, fmap->size, fmap->nareas);
 	fmap_print_once = 1;
 }
@@ -92,12 +92,22 @@ static int find_fmap_directory(struct region_device *fmrd)
 	struct fmap *fmap;
 	size_t offset = FMAP_OFFSET;
 
+
+	printk(BIOS_DEBUG, "a\n");
+
 	/* Try FMAP cache first */
 	if (!region_device_sz(&fmap_cache.rdev))
+	{
 		setup_preram_cache(&fmap_cache);
+	}
 	if (region_device_sz(&fmap_cache.rdev))
+	{
+		printk(BIOS_DEBUG, "d\n");
 		return rdev_chain_full(fmrd, &fmap_cache.rdev);
+	}
+		
 
+	printk(BIOS_DEBUG, "c\n");
 	boot_device_init();
 	boot = boot_device_ro();
 
@@ -127,7 +137,9 @@ int fmap_locate_area_as_rdev(const char *name, struct region_device *area)
 	struct region ar;
 
 	if (fmap_locate_area(name, &ar))
+	{
 		return -1;
+	}
 
 	return boot_device_ro_subregion(&ar, area);
 }

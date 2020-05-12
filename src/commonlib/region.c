@@ -4,6 +4,7 @@
 #include <commonlib/helpers.h>
 #include <commonlib/region.h>
 #include <string.h>
+#include <console/console.h>
 
 int region_is_subregion(const struct region *p, const struct region *c)
 {
@@ -52,14 +53,18 @@ void *rdev_mmap(const struct region_device *rd, size_t offset, size_t size)
 		.size = size,
 	};
 
+
+
 	if (!normalize_and_ok(&rd->region, &req))
 		return NULL;
 
 	rdev = rdev_root(rd);
-
+	printk(BIOS_DEBUG, "13\n");
 	if (rdev->ops->mmap == NULL)
 		return NULL;
 
+	
+		printk(BIOS_DEBUG, "14\n");
 	return rdev->ops->mmap(rdev, req.offset, req.size);
 }
 

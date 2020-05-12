@@ -29,8 +29,10 @@ int cbfs_boot_locate(struct cbfsf *fh, const char *name, uint32_t *type)
 	struct region_device rdev;
 
 	if (cbfs_boot_region_device(&rdev))
+	{
 		return -1;
-
+	}
+		
 	int ret = cbfs_locate(fh, &rdev, name, type);
 
 	if (CONFIG(VBOOT_ENABLE_CBFS_FALLBACK) && ret) {
