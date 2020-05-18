@@ -216,12 +216,22 @@ fmap_locate_area_as_rdev
 fmap_locate_area
 rdev_mmap
 
-Current thought is that maybe find_fmap_directory is putting bad data into the region device. This bit of code is triggered:
+Current thought is that maybe find_fmap_directory is putting NULL data into the region device. This bit of code is triggered:
 
-		if (region_device_sz(&fmap_cache.rdev))
+	if (region_device_sz(&fmap_cache.rdev))
 	{
 		printk(BIOS_DEBUG, "d\n");
 		return rdev_chain_full(fmrd, &fmap_cache.rdev);
 	}
 
+It gets there from the above call stack
 
+fmap_locate_area
+find_fmap_directory
+rdev_chain_full
+rdev_chain
+
+
+Looks like the fmap_cache is not properly getting initialized. But it is static memory so should be zeroised!!!
+
+I reckon there's something dodgy going on with bss
