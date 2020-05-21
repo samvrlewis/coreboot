@@ -28,6 +28,23 @@ ENTRY(_start)
 	 * causes it.
 	 */
 	msr	cpsr_cxf, #0xdf
+
+   ldr r1,=_bss
+   ldr r2,=_ebss
+   mov r3,#0
+1:
+   cmp r1,r2
+   stmltia r1!,{r3}
+   blt 1b
+
+   ldr r1,=_fmap_cache
+   ldr r2,=_efmap_cache
+   mov r3,#0
+2:
+   cmp r1,r2
+   stmltia r1!,{r3}
+   blt 2b
+
 	bl	_thumb_start
 ENDPROC(_start)
 
