@@ -234,4 +234,249 @@ rdev_chain
 
 Looks like the fmap_cache is not properly getting initialized. But it is static memory so should be zeroised!!!
 
-I reckon there's something dodgy going on with bss
+I reckon there's something dodgy going on with bss.
+
+Looks like the stack has some issues?
+
+From armv7/bootblock.s:
+
+	ldr	r0, =_stack
+	ldr	r1, =_estack
+	ldr	r2, =0xdeadbeef
+
+And the resulting assembly
+
+	402f054e:	480a      	ldr	r0, [pc, #40]	; (402f0578 <wait_for_interrupt+0x6>)
+	402f0550:	490a      	ldr	r1, [pc, #40]	; (402f057c <wait_for_interrupt+0xa>)
+	402f0552:	4a0b      	ldr	r2, [pc, #44]	; (402f0580 <wait_for_interrupt+0xe>)
+
+	402f0572 <wait_for_interrupt>:
+	402f0572:	bf30      	wfi
+	402f0574:	46f7      	mov	pc, lr
+	402f0576:	be000000 	cdplt	0, 0, cr0, cr0, cr0, {0}
+	402f057a:	fe004030 	mcr2	0, 0, r4, cr0, cr0, {1}
+	402f057e:	beef4030 	mcrlt	0, 7, r4, cr15, cr0, {1}
+	402f0582:	2e08dead 	cdpcs	14, 0, cr13, cr8, cr13, {5}
+	402f0586:	 	strlt	r4, [r8, #-47]	; 0xffffffd1
+
+Some issues (maybe):
+
+	- stack/estack are not aligned (do they need to be?)
+	- I can't figure out what stack/estack are. Deadbeef is a bit messed up too
+		- Why is half of it at 402f0584 and the other half at 402f057e?
+		- The stack is defined to be `0x4030be00` in the ld script. Can at least see this at 402f057c/402f0576
+		- this would mean that estack = 4030fe00 which is indeed 16K as specified
+
+
+This I think is the finally memory layout:
+
+
+	OUTPUT_FORMAT("elf32-littlearm", "elf32-littlearm", "elf32-littlearm")
+	OUTPUT_ARCH(arm)
+	PHDRS
+	{
+	to_load PT_LOAD;
+	}
+	ENTRY(stage_entry)
+	SECTIONS
+	{
+		_ = ASSERT(. <= 0x402f0400, "dram overlaps the previous region!"); 
+		. = 0x402f0400; 
+		_dram = .;
+
+		_ = ASSERT(. <= 0x402f0400, "bootblock overlaps the previous region!"); 
+		. = 0x402f0400; _
+		bootblock = .; 
+		_ = ASSERT(. == ALIGN(1), "bootblock must be aligned to 1!"); 
+	
+		_ = ASSERT(. <= 0x402f0400 + 20K, "ebootblock overlaps the previous region!"); 
+		. = 0x402f0400 + 20K; 
+		_ebootblock = .;
+	
+		_ = ASSERT(. <= 0x402f5400, "romstage overlaps the previous region!"); 
+		. = 0x402f5400; 
+		_romstage = .; 
+		_eromstage = _romstage + 88K; 
+		_ = ASSERT(_eprogram - _program <= 88K, "Romstage exceeded its allotted size! (88K)"); 
+		INCLUDE "romstage/lib/program.ld"
+
+		_ = ASSERT(. <= 0x4030b400, "fmap_cache overlaps the previous region!"); 
+		. = 0x4030b400; 
+		_fmap_cache = .; 
+		_ = ASSERT(. == ALIGN(4), "fmap_cache must be aligned to 4!"); 
+		_ = ASSERT(. <= 0x4030b400 + 2K, "efmap_cache overlaps the previous region!"); 
+		. = 0x4030b400 + 2K; 
+		_efmap_cache = .;
+
+		_ = ASSERT(2K >= 0xe0, "FMAP does not fit in FMAP_CACHE! (2K < 0xe0)");
+		_ = ASSERT(. <= 0x4030be00, "stack overlaps the previous region!"); 
+		. = 0x4030be00; 
+		_stack = .; 
+		_ = ASSERT(. == ALIGN(8), "stack must be aligned to 8!"); 
+	
+		_ = ASSERT(. <= 0x4030be00 + 16K, "estack overlaps the previous region!"); 
+		. = 0x4030be00 + 16K; 
+		_estack = .;
+		_ = ASSERT(16K >= 2K, "stack should be >= 2K, see toolchain.inc");
+
+		_ = ASSERT(. <= 0x80200000, "ramstage overlaps the previous region!"); 
+		. = 0x80200000; 
+		_ramstage = .; 
+		_ = ASSERT(. == ALIGN(1), "ramstage must be aligned to 1!");
+		_ = ASSERT(. <= 0x80200000 + 192K, "eramstage overlaps the previous region!"); 
+		. = 0x80200000 + 192K; 
+		_eramstage = .;
+	
+		_ = ASSERT(. <= 0x81000000, "ttb overlaps the previous region!");
+		. = 0x81000000; 
+		_ttb = .; 
+		_ = ASSERT(. == ALIGN(16K), "ttb must be aligned to 16K!"); 
+		_ = ASSERT(. <= 0x81000000 + 16K, "ettb overlaps the previous region!"); 
+		. = 0x81000000 + 16K; 
+		_ettb = .; 
+		_ = ASSERT(16K >= 16K + 0 * 32, "TTB must be 16K (+ 32 for LPAE)!");
+	}
+
+
+And this is the structure within the bootblock:
+
+
+	.text . : {
+		_program = .;
+		_text = .;
+		*(.rom.text);
+		*(.rom.data);
+		*(.text._start);
+		*(.text.stage_entry);
+		KEEP(*(.id));
+		*(.text);
+		*(.text.*);
+		. = ALIGN(8);
+		_rsbe_init_begin = .;
+		KEEP(*(.rsbe_init));
+		_ersbe_init_begin = .;
+		. = ALIGN(8);
+		*(.rodata);
+		*(.rodata.*);
+		. = ALIGN(8);
+		_etext = .;
+	} : to_load
+
+	.data . : {
+		. = ALIGN(64);
+		_data = .;
+		*(.data);
+		*(.data.*);
+		*(.sdata);
+		*(.sdata.*);
+		PROVIDE(_preram_cbmem_console = .);
+		PROVIDE(_epreram_cbmem_console = _preram_cbmem_console);
+		. = ALIGN(8);
+		_edata = .;
+	}
+	.bss . : {
+		. = ALIGN(8);
+		_bss = .;
+		*(.bss)
+		*(.bss.*)
+		*(.sbss)
+		*(.sbss.*)
+		. = ALIGN(8);
+		_ebss = .;
+	}
+	_eprogram = .;
+	zeroptr = 0;
+	/DISCARD/ : {
+		*(.comment)
+		*(.comment.*)
+		*(.note)
+		*(.note.*)
+		*(.eh_frame);
+	}
+
+
+
+am335x_gpio_banks is something worth looking at! Seems like it sometimes has bad data in it?
+
+With a binary that constantly complains about bad data accesses:
+
+	402f2c58 <am335x_gpio_banks>:
+
+In this case bss was from 402f2e48 to 402f2f88 and fmap cache was from 4030b400 to 4030bc00
+
+No rodata section..? All strings are in text. I wonder if this blows out the size of text?
+
+
+More interesting stuff.
+
+If I boot only the bootblock.bin either over tftp or by using ./bbb-asm-demo/bin/mk-gpimage to make a MLO file only containing the bootblock, I don't get all the corrupted strings in my output.
+
+Hypthesises:
+
+1) Something sketchy happens when coreboot combines everything into the MLO
+2) The bootROM doesn't like copying bigger files into memory
+3) The MLO headers are wrong and somehow not all memory is getting copied across
+
+Something that's not clear to me is how the 4MB MLO size works. Is this all copied into memory? If so, does the BBB cope (does it have enough SDRAM) and if not, how is the extra memory supposed to be accessed?
+
+I hex edited a MLO file to increase the size in the MLO header and it looks a lot better afterwards!! 
+
+`header_load_size` is how this is set. It currently uses cbfstool to get the offset + size of the romstage. For my current build this comes out to be 10514 bytes but bootblock.bin is 11208 bytes, so it's definetely wrong.. I'm not really sure why tho.
+
+The file size of the romstage.bin file is larger than what the cbfstool reports. Bootblock.bin too.
+
+The actual size that should be copied, looking at the linker dump above should be:
+
+0x4030B400-0x402f0400=0x1B000=110592=108KB.. Which is from the bootblock to the end of the romstage. Which is actually ok and fits within the constraints for the public image location.
+
+Having the fmapcache at 0x4030b400 and a 4K stack at 0x4030be00 means that all the coreboot stuff stops at 0x4030CE00, which marries up with the datasheet - 0x4030CE00 is the end of user avaliable memory (although there's some stuff beyond this that might be able to be repurposed? like ram memory vectors)
+
+Questions:
+
+- Why does cbfstool have the romstage at an offset of 0x80? Shouldn't it be later because the bootblock is first. It was at 0x4c00 in the old coreboot.
+	- I think this has something to do with using FMAPs now.
+- Why was the decision to make the coreboot.rom 4MB when this was too big to be loaded by the inbuilt ROM code?
+	- Assuming I can somehow get the CB ROM stage loading, how should I load the CB RAM stage?
+- Why is the CB ROM stage fixed at 88KB when it seems to be much smaller.
+
+
+
+
+# Hex editing in vim
+:%!xxd to enter
+:%!xxd -r to exit
+
+Need to exit before saving otherwise it saves it as a (human readable) hexdump!
+
+# TFTP booting
+
+```
+cat /etc/NetworkManager/dnsmasq-shared.d/spl-uboot-fit.conf 
+bootp-dynamic
+enable-tftp
+tftp-root=/tmp/bbimages
+dhcp-vendorclass=set:want-spl,AM335x ROM
+dhcp-vendorclass=set:want-uboot,AM335x U-Boot SPL
+dhcp-boot=tag:want-spl,/spl
+dhcp-boot=tag:want-uboot,/uboot
+```
+
+Use nm-connection-editor to choose "shared with other devices" on the USB0 ethernet interface that appears when you plug the BBB into your host computer using USB. You may need to hold the S2 button when booting.
+
+Might need to restart NetworkManager afterwards. 
+
+The above config will be picked up by any dnsmasq adapter that NM starts.
+
+Important - you should load the bootblock.bin file directly over TFTP, it doesn't need the MLO header in it. For some reason though I wasn't able to get the coreboot.pre/coreboot.rom files to work. Unsure why - maybe too large?
+
+
+# Beaglebone commits
+
+3c7e939c3e18b3d286c084ff95266611a0150ca1 - intial work
+3aa58162e1be25ad77800879e73a087ddbdc660c - cleanup am335x
+
+
+b7d81e05bb3e4058cbb28adcc5af0bdccfe88337 - ARM rom stage
+ddbfc645c2fb9c2aab55c9d5f7c55fa80fd8da64 - omap header
+437a1e67a3e4c530292d947ef5e1adbf3cc7650a - expand rom size to 4MB
+1ef5ff277085512a2d24bef0b5f6f185a952b3b7 - make internal rom code load only bootblock/ROM 

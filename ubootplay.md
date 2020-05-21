@@ -26,6 +26,7 @@ cpu_init_cp15
         - this is defined to be 
             #define CONFIG_SYS_INIT_SP_ADDR (NON_SECURE_SRAM_END - GENERATED_GBL_DATA_SIZE)
             - 0x40310000-224 = 0x4030FF20
+                - Why 0x40310000? I think this is because the "public RAM" as listed in the datasheet is up to 0x4030FFFF
             - generated gbl_data_size probs changes though
 cpu_init_crit
     lowlevel_init
@@ -50,3 +51,6 @@ Also a good description of bootflow in the normal readme
 
 https://iitd-plos.github.io/col718/ref/arm-instructionset.pdf
 https://stackoverflow.com/questions/19544694/understanding-mrc-on-arm7
+
+https://github.com/ARM-software/u-boot/blob/master/include/configs/bur_am335x_common.h
+https://github.com/ARM-software/u-boot/blob/master/include/configs/ti_armv7_common.h
