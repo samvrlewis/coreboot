@@ -1,0 +1,8 @@
+FLASH@0x402f0400 109K {
+    BIOS@0 109K {
+        BOOTBLOCK 40K
+        FMAP 0x200
+
+        COREBOOT(CBFS) 60K
+    }
+}

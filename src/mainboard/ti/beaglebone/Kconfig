@@ -39,5 +39,9 @@ config DRAM_SIZE_MB
 config UART_FOR_CONSOLE
 	int
 	default 0
+	
+config FMDFILE
+	string
+	default "src/mainboard/$(CONFIG_MAINBOARD_DIR)/board.fmd"
 
 endif # BOARD_TI_BEAGLEBONE
