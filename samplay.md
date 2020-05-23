@@ -448,13 +448,17 @@ Questions:
 
 Need to exit before saving otherwise it saves it as a (human readable) hexdump!
 
-# TFTP booting
+# TFTP booting over the USB connection from the bootROM
+
+"The boot imageis downloaded directly into internal RAM at the location 0x402F0400 on GP devices.The maximum size of downloaded imageis 109 KB"
+
+Can set up a TFTP server on your laptop to do this. I let NetworkManager be the DHCP/TFTP server by using `nm-connection-editor` to 'share this connection' on usb0. Adding the following config will serve the "SPL" to it.
 
 ```
 cat /etc/NetworkManager/dnsmasq-shared.d/spl-uboot-fit.conf 
 bootp-dynamic
 enable-tftp
-tftp-root=/tmp/bbimages
+tftp-root=/home/sam/work/coreboot/bbimages
 dhcp-vendorclass=set:want-spl,AM335x ROM
 dhcp-vendorclass=set:want-uboot,AM335x U-Boot SPL
 dhcp-boot=tag:want-spl,/spl
@@ -479,4 +483,62 @@ Important - you should load the bootblock.bin file directly over TFTP, it doesn'
 b7d81e05bb3e4058cbb28adcc5af0bdccfe88337 - ARM rom stage
 ddbfc645c2fb9c2aab55c9d5f7c55fa80fd8da64 - omap header
 437a1e67a3e4c530292d947ef5e1adbf3cc7650a - expand rom size to 4MB
-1ef5ff277085512a2d24bef0b5f6f185a952b3b7 - make internal rom code load only bootblock/ROM 
+1ef5ff277085512a2d24bef0b5f6f185a952b3b7 - make internal rom code load only bootblock/ROM
+
+# Making an image
+
+So the bootblock.bin file boots by itself but it would be nice to be able to package a file that also has the coreboot.rom in it as well. How can we do this?
+
+The current size of the coreboot.rom file is ~4MB which I think is too big as it doesn't fit into the 109KB of SRAM.
+
+The flashmap I believe is using the default flash map: util/cbfstool/default.fmd, 
+
+	FLASH@##ROM_BASE## ##ROM_SIZE## {
+		BIOS@##BIOS_BASE## ##BIOS_SIZE## {
+			BOOTBLOCK 128K
+			FMAP@##FMAP_BASE## ##FMAP_SIZE##
+			##CONSOLE_ENTRY##
+			##MRC_CACHE_ENTRY##
+			COREBOOT(CBFS)@##CBFS_BASE## ##CBFS_SIZE##
+		}
+	}
+
+which for a 4MB flash ROM size becomes (in build/fmap.fmd):
+
+	FLASH@0 0x00400000 { # ROM_SIZE
+		BIOS@0 0x00400000 { # 
+			BOOTBLOCK 128K # Default size in the default.fmd file
+			FMAP@0x20000 0x200 # Offset follows from bootblock
+
+
+			COREBOOT(CBFS)@131584 4062720 # 131584 = 128K + 0x200
+		}
+	}
+
+Coreboot CBFS is just stored at the Bootblock + Fmap (ie 131584=128K + 0x200).
+The boot
+
+
+Probably need to define our own one for the BBB as that one isn't right. Base should be the SRAM base, I think.
+
+The flashmap describes how the binary images are arranged in flash. For the BBB "flash" is really SRAM - I think? I need to understand how this properly marries up to the linker script. I think that RAMstage doesn't really need to go in the coreboot.rom file.
+
+fmapcache is probably not so needed in this case as the fmap is already is SRAM. Doesn't really make sense for there to be two copies of it.
+
+coreboot.rom seems to just be coreboot.pre padded out with FFs to fill the ROM
+
+I get an exception trying to access fmap->size because the size is at offset 0x12=18 of the struct
+
+I think this is it trying to access it
+
+402f25a2:	f8d4 2012 	ldr.w	r2, [r4, #18]
+https://answers.launchpad.net/gcc-arm-embedded/+question/452880
+https://e2e.ti.com/support/processors/f/791/t/399616
+
+It seems as though you can't have unaligned accesses before the MMU turns on?
+
+Check this!!
+
+This version also added an A bit into the SCTLR (System Control Register) where you can enable alignment checking. Essentially, if this bit is set then every unaligned access will result in the ARM trapping your code into the trap specified by the trap-vector beginning at address zero.
+
+In ARMv7 when SCTLR (system control register) has A=0, unaligned access is allowed for LDR, STR, LDRH, STRH instructions. 
