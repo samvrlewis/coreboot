@@ -541,4 +541,19 @@ Check this!!
 
 This version also added an A bit into the SCTLR (System Control Register) where you can enable alignment checking. Essentially, if this bit is set then every unaligned access will result in the ARM trapping your code into the trap specified by the trap-vector beginning at address zero.
 
-In ARMv7 when SCTLR (system control register) has A=0, unaligned access is allowed for LDR, STR, LDRH, STRH instructions. 
+In ARMv7 when SCTLR (system control register) has A=0, unaligned access is allowed for LDR, STR, LDRH, STRH instructions.
+
+The startup code is (I believe) allowing unaligned accesses but according to the TI forum post above, the MMU has to be enabled before they're actually allowed.
+
+https://community.arm.com/developer/ip-products/processors/f/cortex-a-forum/8584/how-memory-type-is-decided-when-mmu-is-disabled
+
+> With the MMU disabled, all data accesses will be treated as Device_nGnRnE.  As all unaligned accesses to Device regions will be trigger an alignment fault, that would seem to explain what you are seeing.
+> If you're interested in the full description of MMU disabled bebaviour see section D4.2.9 (The effects of disabling a stage of address translation) in Rev B.a of the ARMv8-A Architecture Reference Manual.
+
+Good article on how the MMU is set up
+
+https://www.witekio.com/blog/turning-arm-mmu-living-tell-tale-code/
+
+Also the rk3288 is an ARM7 chip so may be a good start for comparison
+
+Getting an "undefined instruction" error when trying to invalidate the unified TLB with tlbimvaa. Might indicate that I'm running in user mode? Unsure how to check.
