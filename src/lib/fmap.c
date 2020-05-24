@@ -35,10 +35,25 @@ static int check_signature(const struct fmap *fmap)
 
 static void report(const struct fmap *fmap)
 {
+	// volatile uint32_t *memory_cache = (uint32_t*) 0x402fa400;
+	// volatile uint32_t *memory_real = (uint32_t*) 0x402fb400;
+	// for (int i=0; i<(0xe0/4); i+=1)
+	// {
+	// 	printk(BIOS_DEBUG, "%p : %x\n", (void*)(memory_cache+i), *(memory_cache+i));
+	// 	printk(BIOS_DEBUG, "%p : %x\n", (void*)(memory_real+i), *(memory_real+i));
+	// }
+
+	printk(BIOS_DEBUG, " size pointer = %p\n",
+               (void*)fmap);
+
+
+	printk(BIOS_DEBUG, " size = %#x\n",
+               fmap->size);
+
+
 	printk(BIOS_DEBUG, "FMAP: Found \"%s\" version %d.%d at %#x.\n",
 	       fmap->name, fmap->ver_major, fmap->ver_minor, FMAP_OFFSET);
-	printk(BIOS_DEBUG, "FMAP: base = %#llx size = %#x #areas = %d\n",
-	       (long long)fmap->base, fmap->size, fmap->nareas);
+
 	fmap_print_once = 1;
 }
 
@@ -74,6 +89,8 @@ static void setup_preram_cache(struct mem_region_device *cache_mrdev)
 	const struct region_device *boot_rdev = boot_device_ro();
 	if (!boot_rdev)
 		return;
+
+	printk(BIOS_ERR, "boot rdev %zu %zu\n", boot_rdev->region.offset, boot_rdev->region.size);
 
 	/* memlayout statically guarantees that the FMAP_CACHE is big enough. */
 	if (rdev_readat(boot_rdev, fmap, FMAP_OFFSET, FMAP_SIZE) != FMAP_SIZE)

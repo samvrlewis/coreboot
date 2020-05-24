@@ -11,6 +11,7 @@
 #include <symbols.h>
 #include <timestamp.h>
 #include <mainboard/ti/beaglebone/leds.h>
+#include <arch/cache.h>
 
 DECLARE_OPTIONAL_REGION(timestamp);
 
@@ -44,8 +45,7 @@ static void bootblock_main_with_timestamp(uint64_t base_timestamp,
 
 	bootblock_soc_early_init();
 	bootblock_mainboard_early_init();
-	bootblock_soc_init();
-	bootblock_mainboard_init();
+
 
 	if (CONFIG(USE_OPTION_TABLE))
 		sanitize_cmos();
@@ -57,6 +57,9 @@ static void bootblock_main_with_timestamp(uint64_t base_timestamp,
 		console_init();
 		exception_init();
 	}
+
+	bootblock_soc_init();
+	bootblock_mainboard_init();
 
 	beaglebone_leds_set(BEAGLEBONE_LED_USR0, 1);
 	beaglebone_leds_set(BEAGLEBONE_LED_USR1, 0);
@@ -77,6 +80,14 @@ static void bootblock_main_with_timestamp(uint64_t base_timestamp,
 
 
 	printk(BIOS_NOTICE, "I'm about to run the rom stage\n");
+
+	// volatile uint32_t *memory_cache = (uint32_t*) 0x402fa400;
+	// volatile uint32_t *memory_real = (uint32_t*) 0x402fb400;
+	// for (int i=0; i<(0xe0/4); i+=1)
+	// {
+	// 	printk(BIOS_DEBUG, "%p : %x\n", (void*)(memory_cache+i), *(memory_cache+i));
+	// 	printk(BIOS_DEBUG, "%p : %x\n", (void*)(memory_real+i), *(memory_real+i));
+	// }
 
 	timestamp_add_now(TS_END_BOOTBLOCK);
 

@@ -1,7 +1,9 @@
 POOPONMYSHOES@0x402f0400 109K {
     BIOS@0x0 109K {
-        BOOTBLOCK@0x0 44K
+        BOOTBLOCK@0x0 15K
+        TTB 16K
         FMAP 2K
+
 
         COREBOOT(CBFS) 60K
     }

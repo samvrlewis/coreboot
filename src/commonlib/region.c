@@ -94,6 +94,9 @@ ssize_t rdev_readat(const struct region_device *rd, void *b, size_t offset,
 
 	rdev = rdev_root(rd);
 
+	printk(BIOS_DEBUG, "Reading at %zu %zu\n", req.offset, req.size);
+	printk(BIOS_DEBUG, "From %zu %zu\n", rdev->region.offset, rdev->region.size);
+
 	return rdev->ops->readat(rdev, b, req.offset, req.size);
 }
 

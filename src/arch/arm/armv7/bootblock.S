@@ -29,7 +29,7 @@ ENTRY(_start)
 	 */
 	msr	cpsr_cxf, #0xdf
 
-   ldr r1,=_bss
+/*   ldr r1,=_bss
    ldr r2,=_ebss
    mov r3,#0
 1:
@@ -43,7 +43,7 @@ ENTRY(_start)
 2:
    cmp r1,r2
    stmltia r1!,{r3}
-   blt 2b
+   blt 2b*/
 
 	bl	_thumb_start
 ENDPROC(_start)
