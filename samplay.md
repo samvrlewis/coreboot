@@ -557,3 +557,91 @@ https://www.witekio.com/blog/turning-arm-mmu-living-tell-tale-code/
 Also the rk3288 is an ARM7 chip so may be a good start for comparison
 
 Getting an "undefined instruction" error when trying to invalidate the unified TLB with tlbimvaa. Might indicate that I'm running in user mode? Unsure how to check.
+
+## MMU
+
+MMU translates addresses of code and data from the virtual view of memory to the physical addresses in the real system
+MMU also control memory access permisions, memory ordering and cache policies for regions
+
+Address translation uses translation tables:
+	- tree shaped table data structures that the MMU traverses
+	- ARM uses "translation tables" as a generic term for what can normally be called "page tables"
+
+"The MMU essentially replaces the most significant
+bits of this virtual address with some other value, to generate the physical address (effectively
+defining a base address of a piece of memory"
+
+### TLB
+
+Cache of recently executed page translations
+
+I think the tlb can have L1 or L2 pages. 
+
+The first stage of translation uses a single level 1 translation table, sometimes called a master
+translation table. The L1 translation table divides the full 4GB address space of a 32-bit core
+into 4096 equally sized sections, each of which describes 1MB of virtual memory space. The
+L1 translation table therefore contains 4096 32-bit (word-sized) entries.
+
+Each entry can either hold a pointer to the base address of a level 2 translation table or a
+translation table entry for translating a 1MB section. If the translation table entry is translating
+a 1MB section determined by the encoding, (See Figure 9-5 on page 9-8), it gives the base
+address of the 1MB page in physical memory
+
+http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0464d/BABHBIDJ.html
+
+
+// when mapping 0-4095 DCACHE_OFF
+table[i] = (offset + (i << shift)) | attr;
+0 : 0xc12
+1 : 0x100c12
+2 : 0x200c12
+
+
+C12 in binary:
+
+0 0 0 0 000 11 0 0000 1 0 0 10
+
+
+SBZ = 0
+0 = 0
+NG = 0
+S = 0
+APX = 0
+TEX = 0
+AP = 11
+P = 0
+DOMAIN = 0000
+XN = 1
+C = 0
+B = 0
+10 = 10
+
+
+
+
+
+// when mapping 	mmu_config_range_kb(0x402F0400/1024,
+	  		    (0x402F1400-0x402F0400)/1024, DCACHE_WRITETHROUGH);
+
+0 : 0x40200033                                                                                                                                          
+1 : 0x40201033                                                                                                                                          
+2 : 0x40202033                                                                                                                                          
+3 : 0x40203033                                                                                                                                          
+4 : 0x40204033                                                                                                                                          
+5 : 0x40205033                                                                                                                                          
+6 : 0x40206033                                                                                                                                          
+7 : 0x40207033                                                                                                                                          
+8 : 0x40208033                                                                                                                                          
+9 : 0x40209033  
+
+
+0x02033 in binary = 0b10000000110011
+
+
+11 at the end seems like it is real wrong!
+
+Also the fact that it fills pages to 0-256 also feels wrong.
+
+https://github.com/coreboot/coreboot/commit/108548a42aa3a255bd84247549cd1bf406a152f1
+
+Also weird - without subtable in memlayout the kb mapping doesn't seem to do anything? :\
