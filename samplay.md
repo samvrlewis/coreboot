@@ -645,3 +645,111 @@ Also the fact that it fills pages to 0-256 also feels wrong.
 https://github.com/coreboot/coreboot/commit/108548a42aa3a255bd84247549cd1bf406a152f1
 
 Also weird - without subtable in memlayout the kb mapping doesn't seem to do anything? :\
+
+
+With the TI code:
+
+Supersection 1088: 44040c16
+
+
+Section 1024: 4000cc0a
+Section 1026: 40205c0a
+Section 1027: 40305c0a
+
+
+5C0A
+
+
+In [21]: parse_section_table_entry(0x40000c12) # The coreboot MMU code
+section_type: 2
+B: 0
+C: 0
+XN: 1 <- Think this needs to be 0
+DOMAIN: 0
+P: 0
+AP: 3
+TEX: 0 <-- Check this
+APX: 0
+S: 0
+NG: 0
+always_zero: 0
+SBZ: 0
+BASE_ADDRESS: 1024
+
+In [30]: parse_section_table_entry(0x40005c0a)
+section_type: 2
+B: 0
+C: 1
+XN: 0
+DOMAIN: 0
+P: 0
+AP: 3
+TEX: 5
+APX: 0
+S: 0
+NG: 0
+always_zero: 0
+SBZ: 0
+BASE_ADDRESS: 1024
+
+
+So tex 0 = strongly ordered (with B=0, C=0). The MMU code seems to think B=1, C=1.
+
+
+I think I don't really care about the cache policy.
+Indeed all of these "normal" policies seemed to work:
+
+	000 1 0 Outer and Inner write-through, no allocate on write Normal
+	000 1 1 Outer and Inner write-back, no allocate on write Normal
+	001 0 0 Outer and Inner non-cacheable Normal
+
+This is coreboot writethrough: 
+
+	section_type: 2
+	B: 0
+	C: 1
+	XN: 0
+	DOMAIN: 0
+	P: 0
+	AP: 3
+	TEX: 0
+	APX: 0
+	S: 0
+	NG: 0
+	always_zero: 0
+	SBZ: 0
+	BASE_ADDRESS: 1024
+
+
+Coreboot writeback:
+
+	section_type: 2
+	B: 1
+	C: 1
+	XN: 0
+	DOMAIN: 0
+	P: 0
+	AP: 3
+	TEX: 0
+	APX: 0
+	S: 0
+	NG: 0
+	always_zero: 0
+	SBZ: 0
+	BASE_ADDRESS: 1024
+
+Differences in the sctlr:
+
+U bit (22). Something to do with alignment?
+Branch (11) prediction is also enabled.
+CP15BEN (5) CP15 barrier enable is enabled
+
+Lol I think the TI code has a bug - it sets sctlr to 0x01. Somehow this is the only way I can get it to work though?
+
+sctlr = 1<<12 | 1; //works
+sctlr = 1<<2 | 1; //doesn't work
+
+So in summary, the coreboot MMU code keeps executing if SCTLR = 0x1 but doesn't seem to work for other values.
+The TI MMU code keeps executing if SCTLR = 0x1 or SCTLR = (1<<0) | (1<<2) | (1<<12) for all combinations of "normal" memory. 
+
+But I've just realised that I may be overlapping the UART memory with my DCACHE_WRITEBACK. And yep, that's the issue. dumb dumb!

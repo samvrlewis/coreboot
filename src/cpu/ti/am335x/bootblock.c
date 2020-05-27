@@ -6,6 +6,8 @@
 #include <arch/cache.h>
 #include <bootblock_common.h>
 #include <symbols.h>
+#include <console/console.h>
+
 enum {
 	// device type (asynchronous / "posted" writes)
 	type_device	= 1 << 2 | 0 << 12 | 0 << 14,
@@ -108,7 +110,7 @@ static void init_mmu(void)
 	// configure domain access
 	asm( "mcr\tp15, 0, %0, c3, c0, 0" :: "r" (1) );
 
-	uint32_t reg = (1<<0) | (1<<2) || (1<<12);
+	uint32_t reg = (1<<0) | (1<<2) | (1<<12);
 	asm( "mcr\tp15, 0, %0, c1, c0, 0" :: "r"(reg) );
 
 }
@@ -119,14 +121,26 @@ void bootblock_soc_init(void)
 {
 	// uint32_t sctlr;
 
-	init_mmu();
-	// mmu_init();
+	if (0)
+	{
+		init_mmu();
+	} else {
+
+	//init_mmu();
+	 mmu_init();
 
 	// /* start with mapping everything as strongly ordered. */
-	// mmu_config_range(0, 4096, DCACHE_OFF);
-	// mmu_config_range_kb(0x402F0400/1024,
-	//  		    (0x402F1400-0x402F0400)/1024, DCACHE_WRITETHROUGH);
-	// dcache_mmu_enable();
+	for( u32 addr = 0x44000000; addr != 0x57000000; addr += 0x01000000 )
+		map_supersection( addr | rw_rw_ | type_device );
+
+	// don't overlap the peripheral data!
+	mmu_config_range(1024, 4, DCACHE_WRITEBACK);
+
+	dcache_mmu_enable();
+	}
+	
+
+	//gotta allow access to the uart at 0x44e09000
 
 	// /* enable dcache */
 	// sctlr = read_sctlr();
