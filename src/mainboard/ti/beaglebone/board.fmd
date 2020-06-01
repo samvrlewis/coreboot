@@ -4,7 +4,7 @@ POOPONMYSHOES@0x402f0400 109K {
         TTB 16K
         FMAP 2K
 
-
-        COREBOOT(CBFS) 60K
+        RAM 41K
+        COREBOOT(CBFS) 35K
     }
 }

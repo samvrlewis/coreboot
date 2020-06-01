@@ -5,7 +5,7 @@ bootblock-y	+= gpio.c
 bootblock-y	+= pinmux.c
 bootblock-y	+= monotonic_timer.c
 
-romstage-y	+= nand.c
+romstage-y	+= bootblock_media.c
 romstage-y	+= cbmem.c
 romstage-y	+= dmtimer.c
 romstage-y	+= monotonic_timer.c

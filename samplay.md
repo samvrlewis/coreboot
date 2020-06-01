@@ -753,3 +753,25 @@ So in summary, the coreboot MMU code keeps executing if SCTLR = 0x1 but doesn't 
 The TI MMU code keeps executing if SCTLR = 0x1 or SCTLR = (1<<0) | (1<<2) | (1<<12) for all combinations of "normal" memory. 
 
 But I've just realised that I may be overlapping the UART memory with my DCACHE_WRITEBACK. And yep, that's the issue. dumb dumb!
+
+
+# Loading the RAM 
+
+So the coreboot.pre file is a 109K file that is loaded into SRAM.
+
+The flashmap contains a "romstage" that is loaded into memory, probably overriding what's in the flashmap.
+
+So when the romstage tries to load the ramstage it's not there anymore.
+
+
+The 109KB is divided up like this:
+
+BOOTBLOCK - | - TTB - | - FMAP - | ------------ | -- 35K -- | 
+ 15KB           16KB       2K                        CBFS
+
+
+# Loading from SD
+
+Some info here:
+
+/home/sam/work/third_party/samcoreboot/src/soc/samsung/exynos5250/alternate_cbfs.c
