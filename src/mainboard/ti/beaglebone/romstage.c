@@ -3,6 +3,7 @@
 
 #include <program_loading.h>
 #include <console/console.h>
+#include <cbmem.h>
 #include <cpu/ti/am335x/ddr_init_x.h>
 
 #define uart_putf(X...) printk(BIOS_INFO, "romstage: " X)
@@ -58,6 +59,6 @@ void main(void)
 	  	else
 	  		uart_putf("DDR3 ram test FAIL\n");
     }
-
+	cbmem_initialize_empty();
 	run_ramstage();
 }
