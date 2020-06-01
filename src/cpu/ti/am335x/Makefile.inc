@@ -16,6 +16,7 @@ ramstage-y	+= nand.c
 
 bootblock-y	+= uart.c
 romstage-y	+= uart.c
+romstage-y	+= ddr_init_x.c
 ramstage-y	+= uart.c
 
 $(call add-class,omap-header)

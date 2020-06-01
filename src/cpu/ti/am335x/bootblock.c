@@ -136,6 +136,9 @@ void bootblock_soc_init(void)
 	// don't overlap the peripheral data!
 	mmu_config_range(1024, 4, DCACHE_WRITEBACK);
 
+	for( u32 addr = 0x80000000; addr != 0xC0000000; addr += 0x01000000 )
+		map_supersection( addr | rwxrwx | type_normal( wb, wa ) );
+
 	dcache_mmu_enable();
 	}
 	
