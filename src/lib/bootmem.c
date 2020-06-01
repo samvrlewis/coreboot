@@ -82,6 +82,8 @@ static void bootmem_init(void)
 	bootmem_add_range((uintptr_t)_program, REGION_SIZE(program),
 			  BM_MEM_RAMSTAGE);
 
+	bootmem_add_range((uintptr_t)0x802f0000, 0xffffff, BM_MEM_RAM);
+	
 	bootmem_arch_add_ranges();
 	bootmem_platform_add_ranges();
 }
