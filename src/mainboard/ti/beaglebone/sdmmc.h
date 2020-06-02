@@ -1,0 +1,6 @@
+#ifndef __MAINBOARD_TI_BEAGLEBONE_SDMMC_H__
+#define __MAINBOARD_TI_BEAGLEBONE_SDMMC_H__
+
+int sd_init(void);
+
+#endif	/* __MAINBOARD_TI_BEAGLEBONE_LEDS_H__ */
