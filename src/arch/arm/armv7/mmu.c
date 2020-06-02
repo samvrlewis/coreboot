@@ -125,8 +125,8 @@ static void mmu_fill_table(pte_t *table, u32 start_idx, u32 end_idx,
 	/* Invalidate the TLB entries. */
 	for (i = start_idx; i < end_idx; i++)
 	{
-		//printk(BIOS_DEBUG, "invalidate %lu\n",(offset + (i << shift)) );
-		//tlbimvaa(offset + (i << shift));
+		//printk(BIOS_DEBUG, "invalidate %x\n",(unsigned int)(offset + (i << shift)) );
+		tlbimvaa(offset + (i << shift));
 	}
 
 	
