@@ -755,6 +755,16 @@ The TI MMU code keeps executing if SCTLR = 0x1 or SCTLR = (1<<0) | (1<<2) | (1<<
 But I've just realised that I may be overlapping the UART memory with my DCACHE_WRITEBACK. And yep, that's the issue. dumb dumb!
 
 
+# tlbimvaa issue
+
+"mcr p15, 0, %0, c8, c7, 3"
+
+invalidate 1073741824
+exception _undefined_instruction
+
+Multiprocessing Extensions needed. Does the AM335X (ARM A8) have them???? NO! http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.faqs/ka16519.html
+
+
 # Loading the RAM 
 
 So the coreboot.pre file is a 109K file that is loaded into SRAM.
@@ -775,3 +785,9 @@ BOOTBLOCK - | - TTB - | - FMAP - | ------------ | -- 35K -- |
 Some info here:
 
 /home/sam/work/third_party/samcoreboot/src/soc/samsung/exynos5250/alternate_cbfs.c
+
+In uboot:
+
+cpu_mmc_init in /home/sam/work/third-party/u-boot-2020.04/arch/arm/mach-omap2/am33xx/board.c ?
+
+http://e2e.ti.com/support/legacy_forums/embedded/starterware/f/790/t/408113?MMC-SDcard-BeagleBone-bare-metal-drivers
