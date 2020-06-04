@@ -775,3 +775,23 @@ BOOTBLOCK - | - TTB - | - FMAP - | ------------ | -- 35K -- |
 Some info here:
 
 /home/sam/work/third_party/samcoreboot/src/soc/samsung/exynos5250/alternate_cbfs.c
+
+# TLB invalidation
+
+Fails on tlbimvaa which isn't avaliable on armv7
+
+From the programmers cortex-A guide:
+
+> The Linux kernel has a number of functions that use these CP15 operations, including
+flush_tlb_all() and flush_tlb_range() . Such functions are not typically required by device
+drivers.
+
+Might be good to change to:
+
+> TLBIMVA d Invalidate unified TLB entry by MVA and ASID
+
+Which doesn't need the multiprocessor extensions. ASID is the address space ID.
+
+> The Invalidate single entry operations invalidate a TLB entry that matches the MVA and ASID values provided as an argument to the operation. The required register format is:
+
+
