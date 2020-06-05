@@ -791,3 +791,22 @@ In uboot:
 cpu_mmc_init in /home/sam/work/third-party/u-boot-2020.04/arch/arm/mach-omap2/am33xx/board.c ?
 
 http://e2e.ti.com/support/legacy_forums/embedded/starterware/f/790/t/408113?MMC-SDcard-BeagleBone-bare-metal-drivers
+# TLB invalidation
+
+Fails on tlbimvaa which isn't avaliable on armv7
+
+From the programmers cortex-A guide:
+
+> The Linux kernel has a number of functions that use these CP15 operations, including
+flush_tlb_all() and flush_tlb_range() . Such functions are not typically required by device
+drivers.
+
+Might be good to change to:
+
+> TLBIMVA d Invalidate unified TLB entry by MVA and ASID
+
+Which doesn't need the multiprocessor extensions. ASID is the address space ID.
+
+> The Invalidate single entry operations invalidate a TLB entry that matches the MVA and ASID values provided as an argument to the operation. The required register format is:
+
+
