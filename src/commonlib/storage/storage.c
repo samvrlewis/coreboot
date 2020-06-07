@@ -171,7 +171,7 @@ int storage_startup(struct storage_media *media)
 
 	/* Increase the bus frequency */
 	if (CONFIG(COMMONLIB_STORAGE_SD) && IS_SD(media))
-		err = sd_change_freq(media);
+		err = 0; //sd_change_freq(media);
 	else if (CONFIG(COMMONLIB_STORAGE_MMC)) {
 		err = mmc_change_freq(media);
 		if (!err)
@@ -185,7 +185,7 @@ int storage_startup(struct storage_media *media)
 
 	/* Increase the bus width if possible */
 	if (CONFIG(COMMONLIB_STORAGE_SD) && IS_SD(media))
-		err = sd_set_bus_width(media);
+		err = 0;// sd_set_bus_width(media);
 	else if (CONFIG(COMMONLIB_STORAGE_MMC))
 		err = mmc_set_bus_width(media);
 	if (err)

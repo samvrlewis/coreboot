@@ -27,6 +27,8 @@
 #include <timestamp.h>
 #include <thread.h>
 
+#include <mainboard/ti/beaglebone/sdmmc.h>
+
 static boot_state_t bs_pre_device(void *arg);
 static boot_state_t bs_dev_init_chips(void *arg);
 static boot_state_t bs_dev_enumerate(void *arg);
@@ -410,6 +412,301 @@ static void boot_state_schedule_static_entries(void)
 	}
 }
 
+
+#include <commonlib/storage.h>
+#define uart_putf(X...) printk(BIOS_INFO, "ramstage: " X)
+
+/**
+ * Write a uint32_t value to a memory address
+ */
+static inline void write32(uint32_t address, uint32_t value)
+{
+	REG(address)= value;
+}
+
+/**
+ * Read an uint32_t from a memory address
+ */
+static inline uint32_t read32(uint32_t address)
+{
+	return REG(address);
+}
+
+/**
+ * Set a 32 bits value depending on a mask
+ */
+static inline void set32(uint32_t address, uint32_t mask, uint32_t value)
+{
+	uint32_t val;
+	val= read32(address);
+	val&= ~(mask); /* clear the bits */
+	val|= (value & mask); /* apply the value using the mask */
+	write32(address, val);
+}
+
+static int send_cmd_base(uint32_t command, uint32_t arg, uint32_t resp_type)
+{
+		int count= 0;
+
+	uart_putf("send cmdbase %d %d %d\n", command, arg, resp_type);
+	/* Read current interrupt status and fail it an interrupt is already asserted */
+	if ((read32(MMCHS0_REG_BASE + MMCHS_SD_STAT) & 0xffffu)) {
+		printk(BIOS_DEBUG,"%s, interrupt already raised stat  %08x\n", __FUNCTION__,
+				read32(MMCHS0_REG_BASE + MMCHS_SD_STAT));
+		return 1;
+	}
+
+
+
+	/* Set arguments */
+	write32(MMCHS0_REG_BASE + MMCHS_SD_ARG, arg);
+	/* Set command */
+	set32(MMCHS0_REG_BASE + MMCHS_SD_CMD, MMCHS_SD_CMD_MASK, command);
+
+	/* Wait for completion */
+	while ((read32(MMCHS0_REG_BASE + MMCHS_SD_STAT) & 0xffffu) == 0x0) {
+		count++;
+	}
+
+	if (read32(MMCHS0_REG_BASE + MMCHS_SD_STAT) & 0x8000) {
+		printk(BIOS_DEBUG,"%s, error stat  %08x\n", __FUNCTION__,
+				read32(MMCHS0_REG_BASE + MMCHS_SD_STAT));
+		set32(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_STAT_ERROR_MASK,
+				0xffffffffu);	// clear errors
+		// We currently only support 2.0, not responding to
+		return 1;
+	}
+
+	if (resp_type == CARD_RSP_R1b) {
+		/*
+		 * Command with busy repsonse *CAN* also set the TC bit if they exit busy
+		 */
+		while ((read32(MMCHS0_REG_BASE + MMCHS_SD_STAT)
+				& MMCHS_SD_IE_TC_ENABLE_ENABLE) == 0) {
+			count++;
+		}
+		write32(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_TC_ENABLE_CLEAR);
+	}
+
+	/* clear the cc status */
+	write32(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_CC_ENABLE_CLEAR);
+	return 0;
+}
+
+static int send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, struct mmc_data *data)
+{
+
+uint32_t count;
+	uint32_t value;
+	uart_putf("send cmd %d %d %d\n", cmd->cmdidx, cmd->cmdarg, cmd->resp_type);
+	if (cmd->cmdidx == 16)
+	{
+		return 0;
+	}
+
+	int ret = 0;
+
+	if (cmd->cmdidx == 17)
+	{
+		set32(MMCHS0_REG_BASE + MMCHS_SD_IE, MMCHS_SD_IE_BRR_ENABLE,
+			MMCHS_SD_IE_BRR_ENABLE_ENABLE);
+
+		set32(MMCHS0_REG_BASE + MMCHS_SD_BLK, MMCHS_SD_BLK_BLEN, 512);
+
+		if (send_cmd_base(MMCHS_SD_CMD_CMD17 /* read single block */
+		| MMCHS_SD_CMD_DP_DATA /* Command with data transfer */
+		| MMCHS_SD_CMD_RSP_TYPE_48B /* type (R1) */
+		| MMCHS_SD_CMD_MSBS_SINGLE /* single block */
+		| MMCHS_SD_CMD_DDIR_READ /* read data from card */
+		, cmd->cmdarg, cmd->resp_type)) {
+			return 1;
+		}
+
+		while ((read32(MMCHS0_REG_BASE + MMCHS_SD_STAT)
+			& MMCHS_SD_IE_BRR_ENABLE_ENABLE) == 0) {
+			count++;
+		}
+
+		if (!(read32(MMCHS0_REG_BASE + MMCHS_SD_PSTATE) & MMCHS_SD_PSTATE_BRE_EN)) {
+			return 1; /* We are not allowed to read data from the data buffer */
+		}
+
+		for (count= 0; count < 512; count+= 4) {
+			value= read32(MMCHS0_REG_BASE + MMCHS_SD_DATA);
+			data->dest[count]= *((char*) &value);
+			data->dest[count + 1]= *((char*) &value + 1);
+			data->dest[count + 2]= *((char*) &value + 2);
+			data->dest[count + 3]= *((char*) &value + 3);
+		}
+
+		while ((read32(MMCHS0_REG_BASE + MMCHS_SD_STAT)
+			& MMCHS_SD_IE_TC_ENABLE_ENABLE) == 0) {
+			count++;
+		}
+		write32(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_TC_ENABLE_CLEAR);
+
+		/* clear and disable the bbr interrupt */
+		write32(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_BRR_ENABLE_CLEAR);
+		set32(MMCHS0_REG_BASE + MMCHS_SD_IE, MMCHS_SD_IE_BRR_ENABLE,
+				MMCHS_SD_IE_BRR_ENABLE_DISABLE);
+		return 0;
+
+	} else {
+		uint32_t command = cmd->cmdidx << 24;
+
+		switch (cmd->resp_type) {
+			case CARD_RSP_R1b:
+				command |= MMCHS_SD_CMD_RSP_TYPE_48B_BUSY;
+				break;
+			case CARD_RSP_R1:
+			case CARD_RSP_R3:
+				command |= MMCHS_SD_CMD_RSP_TYPE_48B;
+				break;
+			case CARD_RSP_R2:
+				command |= MMCHS_SD_CMD_RSP_TYPE_136B;
+				break;
+			case CARD_RSP_NONE:
+				command |= MMCHS_SD_CMD_RSP_TYPE_NO_RESP;
+				break;
+			default:
+				return 1;
+		}
+		ret = send_cmd_base(command, cmd->cmdarg, cmd->resp_type);
+
+		if (ret)
+		{
+			return ret;
+		}
+	}
+	
+
+	/* copy response into cmd->resp	 */
+	switch (cmd->resp_type) {
+		case CARD_RSP_R1:
+		case CARD_RSP_R1b:
+		case CARD_RSP_R3:
+			cmd->response[0] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP10);
+			break;
+		case CARD_RSP_R2:
+			cmd->response[0] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP10);
+			cmd->response[1] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP32);
+			cmd->response[2] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP54);
+			cmd->response[3] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP76);
+			break;
+		case CARD_RSP_NONE:
+			break;
+		default:
+			printk(BIOS_DEBUG, "Unknown case\n");
+			return 1;
+	}
+
+
+	return 0;
+}
+
+static void set_ios(struct sd_mmc_ctrlr *ctrlr)
+{
+
+	/*
+	#define SET_BUS_WIDTH(ctrlr, width)		\
+	do {					\
+		ctrlr->bus_width = width;	\
+		ctrlr->set_ios(ctrlr);		\
+	} while (0)
+
+	#define SET_CLOCK(ctrlr, clock_hz)		\
+		do {					\
+			ctrlr->request_hz = clock_hz;	\
+			ctrlr->set_ios(ctrlr);		\
+		} while (0)
+
+	#define SET_TIMING(ctrlr, timing_value)		\
+			ctrlr->timing = timing_value;	\
+			ctrlr->set_ios(ctrlr);		\
+	*/
+
+	// need to set the bus width, timing and clock
+
+	/*
+	width is 1,4,8
+
+	#define CLOCK_KHZ		1000
+#define CLOCK_MHZ		(1000 * CLOCK_KHZ)
+#define CLOCK_20MHZ		(20 * CLOCK_MHZ)
+#define CLOCK_25MHZ		(25 * CLOCK_MHZ)
+#define CLOCK_26MHZ		(26 * CLOCK_MHZ)
+#define CLOCK_50MHZ		(50 * CLOCK_MHZ)
+#define CLOCK_52MHZ		(52 * CLOCK_MHZ)
+#define CLOCK_200MHZ		(200 * CLOCK_MHZ)
+
+
+	#define BUS_TIMING_LEGACY	0
+#define BUS_TIMING_MMC_HS	1
+#define BUS_TIMING_SD_HS	2
+#define BUS_TIMING_UHS_SDR12	3
+#define BUS_TIMING_UHS_SDR25	4
+#define BUS_TIMING_UHS_SDR50	5
+#define BUS_TIMING_UHS_SDR104	6
+#define BUS_TIMING_UHS_DDR50	7
+#define BUS_TIMING_MMC_DDR52	8
+#define BUS_TIMING_MMC_HS200	9
+#define BUS_TIMING_MMC_HS400	10
+#define BUS_TIMING_MMC_HS400ES	11
+*/
+
+
+	printk(BIOS_DEBUG, "%s: called, bus_width: %x, clock: %d -> %d\n", __func__,
+		  ctrlr->bus_width, ctrlr->request_hz, ctrlr->timing);
+}
+
+static void init_sd(void)
+{
+	struct storage_media media;
+	struct sd_mmc_ctrlr mmc_ctrlr;
+	uint8_t buffer[1024];
+
+
+	memset(&mmc_ctrlr, 0, sizeof(mmc_ctrlr));
+	memset(&buffer, 0, sizeof(buffer));
+	mmc_ctrlr.send_cmd = &send_cmd;
+	mmc_ctrlr.set_ios = &set_ios;
+
+	mmc_ctrlr.voltages = MMC_VDD_30_31;
+	mmc_ctrlr.b_max = 1;
+
+	
+
+	media.ctrlr = &mmc_ctrlr;
+
+	printk(BIOS_DEBUG, "pre storage\n");
+
+	storage_setup_media(&media, &mmc_ctrlr);
+
+	printk(BIOS_DEBUG, "post storage\n");
+
+	storage_display_setup(&media);
+
+	storage_block_read(&media, 0, 2, &buffer);
+
+	for (int i=0; i<1024; i+=2)
+	{
+
+		if (i%16==0)
+		{
+			printk(BIOS_DEBUG, "\n%08x: ", i);
+		}
+		printk(BIOS_DEBUG, "%02x%02x ", buffer[i], buffer[i+1]);
+	}
+
+	//storage_block_read(&media, 0, 1, &buffer);
+
+	//storage_block_read(&media, 0, 1, &buffer);
+
+	
+
+	//	printk(BIOS_DEBUG, "post storage\n");
+}
+
 void main(void)
 {
 	/*
@@ -444,6 +741,10 @@ void main(void)
 
 	timestamp_add_now(TS_START_RAMSTAGE);
 	post_code(POST_ENTRY_RAMSTAGE);
+
+	init_sd();
+
+	return;
 
 	/* Handoff sleep type from romstage. */
 #if CONFIG(HAVE_ACPI_RESUME)

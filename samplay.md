@@ -810,3 +810,44 @@ Which doesn't need the multiprocessor extensions. ASID is the address space ID.
 > The Invalidate single entry operations invalidate a TLB entry that matches the MVA and ASID values provided as an argument to the operation. The required register format is:
 
 
+
+The SD common lib in coreboot was taken from the google "depthcharge" bootloader. Get the full git log: git log --all --full-history --  src/drivers/storage
+
+Maybe new_rk_sdhci_host?
+
+https://gitlab.cluster.earlham.edu/pelibby16/minix-mod/tree/49246fcdd50a585ff9e049f0ab9dc352202e31d4/drivers/mmc
+
+
+https://groups.google.com/forum/#!topic/computerclubin/tAgMNHPCge4
+
+https://github.com/digitalocean/linux-coresched/blob/7d326930d3522a1183b8d54126c524fcbccd3343/drivers/mmc/host/sdhci-omap.c
+
+new_mem_sdhci_controller
+
+
+# Timers
+
+Need to fix udelay for the BB
+Can start a dmtimer to read timer values. This should be able to be used with the genric udelay and monotomic timer code.
+
+timer0 fixed to run at 32khz, timers 2-7 can use 25MHz clock. 
+
+unsure how to set the timer frequency source clock:
+
+EachDMTimer[2–7] functionalclockis selectedwithinthe PRCMusingthe associatedCLKSEL_TIMERx_CLKregisterfromthreepossiblesources.
+
+defaults to use the 25MHz clock- I think. Section 26.1.5.3 shows the clocking frequency which is based on SYSBOOT[15:14]
+
+For the BBB 6.7.1 shows the boot configuration. DNI = do not include. 14=1 15=0. So the 25MHz clock is indeed used.
+
+Planning to use dmtimer2 with default clock configuration. Means it runs at 25MHz. Aim for ~30 second resolution with the prescaler
+
+https://github.com/dawbarton/starterware/blob/master/platform/evmskAM335x/dmtimer.c
+
+0x48040000 base
+
+38H = TCLR
+
+write 3 to start in autoreload mode
+
+3CH to read
