@@ -6,7 +6,7 @@
 
 #include <stdint.h>
 
-#define OSC_HZ 24000000
+#define OSC_HZ (25000000)
 
 void dmtimer_start(int num);
 uint32_t dmtimer_raw_value(int num);
