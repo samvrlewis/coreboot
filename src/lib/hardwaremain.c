@@ -588,10 +588,10 @@ uint32_t count;
 			cmd->response[0] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP10);
 			break;
 		case CARD_RSP_R2:
-			cmd->response[0] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP10);
-			cmd->response[1] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP32);
-			cmd->response[2] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP54);
-			cmd->response[3] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP76);
+			cmd->response[3] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP10);
+			cmd->response[2] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP32);
+			cmd->response[1] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP54);
+			cmd->response[0] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP76);
 			break;
 		case CARD_RSP_NONE:
 			break;
