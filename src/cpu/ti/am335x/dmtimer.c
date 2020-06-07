@@ -2,12 +2,15 @@
 /* This file is part of the coreboot project. */
 
 #include "dmtimer.h"
+#include <device/mmio.h>
 
 void dmtimer_start(int num)
 {
+	write32((void*)(0x48040000+0x38), 0x3);
+	return;
 }
 
-uint64_t dmtimer_raw_value(int num)
+uint32_t dmtimer_raw_value(int num)
 {
-	return 0;
+	return read32((void*)(0x48040000+0x3c));
 }

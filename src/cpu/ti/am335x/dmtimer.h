@@ -9,6 +9,6 @@
 #define OSC_HZ 24000000
 
 void dmtimer_start(int num);
-uint64_t dmtimer_raw_value(int num);
+uint32_t dmtimer_raw_value(int num);
 
 #endif
