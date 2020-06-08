@@ -144,7 +144,20 @@ int sd_mmc_set_blocklen(struct sd_mmc_ctrlr *ctrlr, int len)
 	cmd.cmdarg = len;
 	cmd.flags = 0;
 
-	return ctrlr->send_cmd(ctrlr, &cmd, NULL);
+	int err;
+
+	int retries = 4;
+	/*
+		* It has been seen that SET_BLOCKLEN may fail on the first
+		* attempt, let's try a few more time
+		*/
+	do {
+		err = ctrlr->send_cmd(ctrlr, &cmd, NULL);
+		if (!err)
+			break;
+	} while (retries--);
+	
+	return err;
 }
 
 int sd_mmc_enter_standby(struct storage_media *media)
