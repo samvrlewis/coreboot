@@ -18,6 +18,7 @@ bootblock-y	+= uart.c
 romstage-y	+= uart.c
 romstage-y	+= ddr_init_x.c
 ramstage-y	+= uart.c
+ramstage-y  += sd.c
 
 $(call add-class,omap-header)
 $(eval $(call create_class_compiler,omap-header,arm))

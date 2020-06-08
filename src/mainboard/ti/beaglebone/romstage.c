@@ -5,13 +5,11 @@
 #include <console/console.h>
 #include <cbmem.h>
 #include <cpu/ti/am335x/ddr_init_x.h>
-#include "sdmmc.h"
 
+#include <lib.h>
+#include <symbols.h>
 
 #define uart_putf(X...) printk(BIOS_INFO, "romstage: " X)
-
-
-
 
 void main(void)
 {
@@ -68,7 +66,7 @@ void main(void)
 	printk(BIOS_DEBUG, "a\n");
 
 	cbmem_initialize_empty();
+	ram_check(0x80000000, 0x80500000);
 
-	sd_init();
 	run_ramstage();
 }

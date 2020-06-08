@@ -623,15 +623,15 @@ B = 0
 // when mapping 	mmu_config_range_kb(0x402F0400/1024,
 	  		    (0x402F1400-0x402F0400)/1024, DCACHE_WRITETHROUGH);
 
-0 : 0x40200033                                                                                                                                          
-1 : 0x40201033                                                                                                                                          
-2 : 0x40202033                                                                                                                                          
-3 : 0x40203033                                                                                                                                          
-4 : 0x40204033                                                                                                                                          
-5 : 0x40205033                                                                                                                                          
-6 : 0x40206033                                                                                                                                          
-7 : 0x40207033                                                                                                                                          
-8 : 0x40208033                                                                                                                                          
+0 : 0x40200033                                       
+1 : 0x40201033                                       
+2 : 0x40202033                                       
+3 : 0x40203033                                       
+4 : 0x40204033                                       
+5 : 0x40205033                                       
+6 : 0x40206033                                       
+7 : 0x40207033                                       
+8 : 0x40208033                                       
 9 : 0x40209033  
 
 
@@ -851,3 +851,190 @@ https://github.com/dawbarton/starterware/blob/master/platform/evmskAM335x/dmtime
 write 3 to start in autoreload mode
 
 3CH to read
+
+Probably need to provide a SD RO_MEDIA in order to map the SD pages into memory so they can be booted from. /home/sam/work/coreboot/src/mainboard/sifive/hifive-unleashed/media.c for inspiration. 
+
+Works (change freq commented out)
+
+	set_ios: called, bus_width: 1, clock: 0 -> 2                                                                                                  [620/4610]
+	set_ios: called, bus_width: 1, clock: 1 -> 2
+	ramstage: send cmd 0 0 0
+	ramstage: send cmdbase 0 0 0
+	ramstage: send cmd 8 426 21
+	ramstage: send cmdbase 134348800 426 21
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 2 0 7
+	ramstage: send cmdbase 33619968 0 7
+	ramstage: send cmd 3 0 21
+	ramstage: send cmdbase 50462720 0 21
+	ramstage: send cmd 9 -1431699456 7
+	ramstage: send cmdbase 151060480 -1431699456 7
+	ramstage: send cmd 13 -1431699456 21
+	ramstage: send cmdbase 218234880 -1431699456 21
+	CURR STATE:3 999
+	csd0=1074659378, fbase=1000000, mult=25
+	mmc media info: version=0x20020, tran_speed=25000000
+	ramstage: send cmd 7 -1431699456 21
+	ramstage: send cmdbase 117571584 -1431699456 21
+	Man 000003 Snr 4106768641 Product SC16 Revision 14.12
+
+Doesn't work
+
+	set_ios: called, bus_width: 1, clock: 1 -> 2[75/4554]
+	ramstage: send cmd 0 0 0                             
+	ramstage: send cmdbase 0 0 0                         
+	ramstage: send cmd 8 426 21                          
+	ramstage: send cmdbase 134348800 426 21              
+	ramstage: send cmd 55 0 21                           
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21
+	ramstage: send cmd 41 1074003968 1
+	ramstage: send cmdbase 687996928 1074003968 1
+	ramstage: send cmd 55 0 21
+	ramstage: send cmdbase 922877952 0 21                
+	ramstage: send cmd 41 1074003968 1                   
+	ramstage: send cmdbase 687996928 1074003968 1        
+	ramstage: send cmd 55 0 21                           
+	ramstage: send cmdbase 922877952 0 21                
+	ramstage: send cmd 41 1074003968 1                   
+	ramstage: send cmdbase 687996928 1074003968 1        
+	ramstage: send cmd 2 0 7                             
+	ramstage: send cmdbase 33619968 0 7                  
+	ramstage: send cmd 3 0 21                            
+	ramstage: send cmdbase 50462720 0 21                 
+	ramstage: send cmd 9 -1431699456 7
+	ramstage: send cmdbase 151060480 -1431699456 7
+	ramstage: send cmd 13 -1431699456 21
+	ramstage: send cmdbase 218234880 -1431699456 21
+	CURR STATE:3 999
+	csd0=1074659378, fbase=1000000, mult=25
+	mmc media info: version=0x20020, tran_speed=25000000
+	ramstage: send cmd 7 -1431699456 21
+	ramstage: send cmdbase 117571584 -1431699456 21
+	ramstage: send cmd 55 -1431699456 21                 
+	ramstage: send cmdbase 922877952 -1431699456 21
+	ramstage: send cmd 51 0 21
+	ramstage: send cmdbase 855769088 0 21
+	set_ios: called, bus_width: 1, clock: 25000000 -> 2
+	Man 000003 Snr 4106768641 Product SC16 Revision 14.12
+
+Maybe it's literally timing out because it's expecting a faster clock?
+
+Manually changing the clock to be faster seems to work fine. Maybe an issue with the SD commands sent before changing it?
+
+For the 16GB SD card:
+
+ looking at device '/devices/platform/ocp/48060000.mmc/mmc_host/mmc0/mmc0:aaaa/block/mmcblk0':
+    KERNEL=="mmcblk0"
+    SUBSYSTEM=="block"
+    DRIVER==""
+    ATTR{discard_alignment}=="0"
+    ATTR{range}=="8"
+    ATTR{capability}=="50"
+    ATTR{force_ro}=="0"
+    ATTR{removable}=="0"
+    ATTR{hidden}=="0"
+    ATTR{stat}=="    3128     1269   169706     9249      141      187     2856     1409        0     7592     8944        0        0        0        0"
+    ATTR{ro}=="0"
+    ATTR{alignment_offset}=="0"
+    ATTR{size}=="31116288"
+    ATTR{ext_range}=="256"
+    ATTR{inflight}=="       0        0"
+
+  looking at parent device '/devices/platform/ocp/48060000.mmc/mmc_host/mmc0/mmc0:aaaa':
+    KERNELS=="mmc0:aaaa"
+    SUBSYSTEMS=="mmc"
+    DRIVERS=="mmcblk"
+    ATTRS{scr}=="0235804300000000"
+    ATTRS{preferred_erase_size}=="4194304"
+    ATTRS{fwrev}=="0x0"
+    ATTRS{serial}=="0xecf4c851"
+    ATTRS{oemid}=="0x5344"
+    ATTRS{csd}=="400e00325b59000076b27f800a404013"
+    ATTRS{type}=="SD"
+    ATTRS{hwrev}=="0x8"
+    ATTRS{manfid}=="0x000003"
+    ATTRS{rca}=="0xaaaa"
+    ATTRS{ocr}=="0x00200000"
+    ATTRS{dsr}=="0x404"
+    ATTRS{date}=="11/2017"
+    ATTRS{erase_size}=="512"
+    ATTRS{cid}=="035344534331364780ecf4c851011b85"
+    ATTRS{ssr}=="0000000004000000040090000f051a00000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    ATTRS{name}=="SC16G"
+
+Setting the blocklen maybe fails because you need to send it a few times? MMC_QUIRK_RETRY_SET_BLOCKLEN

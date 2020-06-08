@@ -15,8 +15,9 @@
 bootblock-y += bootblock.c
 bootblock-y += leds.c
 romstage-y += romstage.c
-romstage-y += sdmmc.c
+#romstage-y += sdmmc.c
 #ramstage-y += ramstage.c
+#ramstage-y += sdmmc.c
 
 bootblock-y += memlayout.ld
 romstage-y += memlayout.ld
