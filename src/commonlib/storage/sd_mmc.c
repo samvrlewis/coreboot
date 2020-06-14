@@ -70,9 +70,14 @@ static uint32_t sd_mmc_calculate_transfer_speed(uint32_t csd0)
 		80,
 	};
 
+
 	/* divide frequency by 10, since the mults are 10x bigger */
 	freq = fbase[csd0 & 0x7];
 	mult = multipliers[(csd0 >> 3) & 0xf];
+
+
+	printk(BIOS_DEBUG, "csd0=%d, fbase=%d, mult=%d\n", csd0, freq, mult);
+
 	return freq * mult;
 }
 
@@ -112,6 +117,8 @@ int sd_mmc_send_status(struct storage_media *media, ssize_t tries)
 	cmd.cmdarg = media->rca << 16;
 	cmd.flags = 0;
 
+	cmd.response[0] = 0;
+
 	while (tries--) {
 		int err = ctrlr->send_cmd(ctrlr, &cmd, NULL);
 		if (err)
@@ -126,8 +133,8 @@ int sd_mmc_send_status(struct storage_media *media, ssize_t tries)
 		udelay(100);
 	}
 
-	sd_mmc_trace("CURR STATE:%d\n",
-		  (cmd.response[0] & MMC_STATUS_CURR_STATE) >> 9);
+	sd_mmc_trace("CURR STATE:%d %d\n",
+		  (cmd.response[0] & MMC_STATUS_CURR_STATE) >> 9, tries);
 
 	if (tries < 0) {
 		sd_mmc_error("Timeout waiting card ready\n");

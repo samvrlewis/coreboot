@@ -118,6 +118,9 @@ void storage_display_setup(struct storage_media *media)
 	sdhc_debug("Erase block size: 0x%08x\n", media->erase_blocks
 		* media->write_bl_len);
 
+	long c_size= (media->csd[1] >> 16) | ((media->csd[2] & 0x3F) << 16);
+	printk(BIOS_DEBUG, "size = %lu\n", (c_size + 1) * 512 * 1024);
+
 	/* Display the partition capacities */
 	if (CONFIG(SDHC_DEBUG)) {
 		for (partition_number = 0; partition_number
@@ -171,7 +174,7 @@ int storage_startup(struct storage_media *media)
 
 	/* Increase the bus frequency */
 	if (CONFIG(COMMONLIB_STORAGE_SD) && IS_SD(media))
-		err = 0; //sd_change_freq(media);
+		err = sd_change_freq(media);
 	else if (CONFIG(COMMONLIB_STORAGE_MMC)) {
 		err = mmc_change_freq(media);
 		if (!err)
@@ -185,7 +188,7 @@ int storage_startup(struct storage_media *media)
 
 	/* Increase the bus width if possible */
 	if (CONFIG(COMMONLIB_STORAGE_SD) && IS_SD(media))
-		err = 0;// sd_set_bus_width(media);
+		err = 0;//sd_set_bus_width(media);
 	else if (CONFIG(COMMONLIB_STORAGE_MMC))
 		err = mmc_set_bus_width(media);
 	if (err)

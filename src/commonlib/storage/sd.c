@@ -100,6 +100,7 @@ int sd_send_op_cond(struct storage_media *media)
 static int sd_switch(struct sd_mmc_ctrlr *ctrlr, int mode, int group,
 	uint8_t value, uint8_t *resp)
 {
+	printk(BIOS_DEBUG, "sd switch\n");
 	/* Switch the frequency */
 	struct mmc_command cmd;
 	cmd.cmdidx = SD_CMD_SWITCH_FUNC;
@@ -173,6 +174,14 @@ int sd_change_freq(struct storage_media *media)
 	media->scr[0] = be32toh(scr[0]);
 	media->scr[1] = be32toh(scr[1]);
 
+	printk(BIOS_DEBUG, "SCR 0 %02x\n", scr[0]);
+	printk(BIOS_DEBUG, "SCR 1 %02x\n", scr[1]);
+	printk(BIOS_DEBUG, "SCR 2 %02x\n", scr[2]);
+	printk(BIOS_DEBUG, "SCR 3 %02x\n", scr[3]);
+
+	printk(BIOS_DEBUG, "SCR 0 %d\n", media->scr[0]);
+	printk(BIOS_DEBUG, "SCR 1 %d\n", media->scr[1]);
+
 	switch ((media->scr[0] >> 24) & 0xf) {
 	case 0:
 		media->version = SD_VERSION_1_0;
@@ -189,11 +198,18 @@ int sd_change_freq(struct storage_media *media)
 	}
 
 	if (media->scr[0] & SD_DATA_4BIT)
+	{
 		media->caps |= DRVR_CAP_4BIT;
+		printk(BIOS_DEBUG, "4bit\n");
+	}
+		
 
 	/* Version 1.0 doesn't support switching */
 	if (media->version == SD_VERSION_1_0)
+	{
+		printk(BIOS_DEBUG, "ver1\n");
 		goto out;
+	}
 
 	timeout = 4;
 	while (timeout--) {
