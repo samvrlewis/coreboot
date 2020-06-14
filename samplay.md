@@ -1083,6 +1083,8 @@ I think the offset should be where the MLO file should be + header size + 109KB 
 
 Going to start experimenting by building an image that includes a payload and putting it at 0x0 on the SD card. Then boot from USB (as normal) but tell the RAMstage to boot from 0x00+109KB on the SD card. Will eventually need to modify this to fit the MLO header in as well, but want to avoid doing that for now so that I can continue to use USB booting as its more convenient.
 
+Or, I could just dd the first 109KB of coreboot.pre to the bbimages?
+
 # Add an elf to the spl:
 ./build/cbfstool build/coreboot.pre add-payload -f notmain.elf -n fallback/payload
 
