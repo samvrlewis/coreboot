@@ -393,7 +393,7 @@ static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 		  ctrlr->bus_width, ctrlr->request_hz, ctrlr->timing);
 }
 
-uint8_t buffer[111616];
+uint8_t buffer[122880];
 
 static struct storage_media media;
 static struct sd_mmc_ctrlr mmc_ctrlr;
@@ -432,7 +432,7 @@ static const struct region_device_ops am335x_sd_ops = {
 
 
 static struct mmap_helper_region_device sd_mdev =
-	MMAP_HELPER_REGION_INIT(&am335x_sd_ops, 0, 111616);
+	MMAP_HELPER_REGION_INIT(&am335x_sd_ops, 0, 122880);
 
 const struct region_device *boot_device_ro(void)
 {
@@ -480,7 +480,7 @@ void init_sd(void)
 
 	storage_display_setup(&media);
 
-	storage_block_read(&media, 0, 111616/512, &buffer);
+	storage_block_read(&media, 0, 122880/512, &buffer);
 
 	for (int i=0x0010000; i<0x13000; i+=2)
 	{

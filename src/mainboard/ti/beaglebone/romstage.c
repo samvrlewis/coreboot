@@ -63,7 +63,7 @@ void main(void)
 	  		uart_putf("DDR3 ram test FAIL\n");
     }
 
-	printk(BIOS_DEBUG, "a\n");
+	printk(BIOS_DEBUG, "CONFIG_ROM_SIZE %d\n", CONFIG_ROM_SIZE);
 
 	cbmem_initialize_empty();
 	ram_check(0x80000000, 0x80500000);

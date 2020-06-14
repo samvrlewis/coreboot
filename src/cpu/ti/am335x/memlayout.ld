@@ -20,7 +20,7 @@ SECTIONS
 	RAMSTAGE(0x80200000, 2000K)
 
 	/* TODO: Implement MMU support and move TTB to a better location. */
-	POSTRAM_CBFS_CACHE(0x81200000, 1M)
+	POSTRAM_CBFS_CACHE(0x81200000, 4M)
 
 #ifdef OMAP_HEADER
 	.header : {

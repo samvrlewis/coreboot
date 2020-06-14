@@ -266,6 +266,10 @@ out:
 int cbfs_boot_region_device(struct region_device *rdev)
 {
 	boot_device_init();
-	return vboot_locate_cbfs(rdev) &&
-	       fmap_locate_area_as_rdev("COREBOOT", rdev);
+
+	if (ENV_RAMSTAGE)
+		return vboot_locate_cbfs(rdev) && fmap_locate_area_as_rdev("PL", rdev);
+	else {
+		return vboot_locate_cbfs(rdev) && fmap_locate_area_as_rdev("COREBOOT", rdev);
+	}
 }
