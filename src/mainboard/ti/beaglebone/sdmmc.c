@@ -65,31 +65,22 @@ static int mmchs_init(void)
 		counter++;
 	}
 
+	// add a softresetall in
+	set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, MMCHS_SD_SYSCTL_SRA,
+			MMCHS_SD_SYSCTL_SRA);
+
+	while ((read32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL)
+			& MMCHS_SD_SYSCTL_SRA)) {
+		counter++;
+		printk(BIOS_DEBUG, "waiting\n");
+	}
+
 	/*
 	 * Set SD default capabilities
 	 */
 	set32(MMCHS0_REG_BASE + MMCHS_SD_CAPA, MMCHS_SD_CAPA_VS_MASK,
 			MMCHS_SD_CAPA_VS18 | MMCHS_SD_CAPA_VS30);
 
-	/*
-	 * wake-up configuration
-	 */
-	set32(
-			MMCHS0_REG_BASE + MMCHS_SD_SYSCONFIG,
-			MMCHS_SD_SYSCONFIG_AUTOIDLE | MMCHS_SD_SYSCONFIG_ENAWAKEUP
-					| MMCHS_SD_SYSCONFIG_STANDBYMODE
-					| MMCHS_SD_SYSCONFIG_CLOCKACTIVITY
-					| MMCHS_SD_SYSCONFIG_SIDLEMODE,
-			MMCHS_SD_SYSCONFIG_AUTOIDLE_EN /* Automatic clock gating strategy */
-			| MMCHS_SD_SYSCONFIG_ENAWAKEUP_EN /*  Enable wake-up capability */
-			| MMCHS_SD_SYSCONFIG_SIDLEMODE_IDLE /*  Smart-idle */
-			| MMCHS_SD_SYSCONFIG_CLOCKACTIVITY_OFF /* Booth the interface and functional can be switched off */
-			| MMCHS_SD_SYSCONFIG_STANDBYMODE_WAKEUP_INTERNAL /* Go info wake-up mode when possible */
-			);
-
-	/* Wake-up on sd interrupt SDIO */
-	set32(MMCHS0_REG_BASE + MMCHS_SD_HCTL, MMCHS_SD_HCTL_IWE,
-			MMCHS_SD_HCTL_IWE_EN);
 
 	/*
 	 * MMC host and bus configuration
@@ -121,7 +112,7 @@ static int mmchs_init(void)
 
 	//@TODO Fix external clock enable , this one is very slow
 	set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, MMCHS_SD_SYSCTL_CLKD,
-			(0x3ff << 6));
+			(240 << 6));
 	set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, MMCHS_SD_SYSCTL_CEN,
 			MMCHS_SD_SYSCTL_CEN_EN);
 	while ((read32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL) & MMCHS_SD_SYSCTL_ICS)
@@ -330,6 +321,7 @@ static int card_csd(struct sd_card *card)
 	}
 	long c_size= (card->csd[1] >> 16) | ((card->csd[2] & 0x3F) << 16);
 	printk(BIOS_DEBUG,"size = %lu\n", (c_size + 1) * 512 * 1024);
+	printk(BIOS_DEBUG, "%02x%02x%02x%02x\n", card->csd[0], card->csd[1], card->csd[2], card->csd[3]);
 	return 0;
 }
 
@@ -456,10 +448,12 @@ static int write_single_block(struct sd_card *card,
 	return 0;
 }
 
-int sd_init(void)
+int sd_init(int full_init)
 {
 	struct sd_card card;
 	int i;
+
+	printk(BIOS_DEBUG, "sd_init\n");
 
 	unsigned char buf[1024];
 	for (i= 0; i < 1024; i++) {
@@ -471,7 +465,12 @@ int sd_init(void)
 		return 1;
 	}
 
-	return 0;
+	if (!full_init)
+	{
+		return 0;
+	}
+
+	printk(BIOS_DEBUG, "doing a full\n");
 
 	if (card_goto_idle_state()) {
 		printk(BIOS_DEBUG,"failed to go into idle state\n");

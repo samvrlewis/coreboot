@@ -1038,3 +1038,85 @@ For the 16GB SD card:
     ATTRS{name}=="SC16G"
 
 Setting the blocklen maybe fails because you need to send it a few times? MMC_QUIRK_RETRY_SET_BLOCKLEN
+
+# Adding payload
+
+Looks like I can do something like this
+
+	POOPONMYSHOES@0x402f0400 4000K {
+		BIOS@0x0 109K {
+			BOOTBLOCK@0x0 15K
+			TTB 16K
+			FMAP 2K
+
+			RAM 41K
+			COREBOOT(CBFS) 35K
+		}
+		PAYLOAD 3000K{
+			PL(CBFS) 3000K
+		}
+	}
+
+	-POOPONMYSHOES@0x402f0400 109K {
+	+POOPONMYSHOES@0x402f0400 10000K {
+		BIOS@0x0 109K {
+			BOOTBLOCK@0x0 15K
+			TTB 16K
+	@@ -7,4 +7,7 @@ POOPONMYSHOES@0x402f0400 109K {
+			RAM 41K
+			COREBOOT(CBFS) 35K
+		}
+	+    PAYLOAD@0x1B800 3000K{
+	+        PL(CBFS) 3000K
+	+   
+
+Which I think should allow the bootrom to load the first 109KB but then the ram stage to hopefully be able to load in from SD memory.
+
+
+So to do this I think I'll create a coreboot.rom image that will be placed on the SD card. The MLO will tell it to only load the first 109KB of it, which is the "BIOS". Then the code in "media.c" can tell the RAMstage to load the payload from the right place on the SD card. 
+
+
+static struct mmap_helper_region_device sd_mdev =
+	MMAP_HELPER_REGION_INIT(&unleashed_sd_ops, 0, CONFIG_ROM_SIZE);
+
+I think the offset should be where the MLO file should be + header size + 109KB and the length should be whatever I allocate for the payload?
+
+Going to start experimenting by building an image that includes a payload and putting it at 0x0 on the SD card. Then boot from USB (as normal) but tell the RAMstage to boot from 0x00+109KB on the SD card. Will eventually need to modify this to fit the MLO header in as well, but want to avoid doing that for now so that I can continue to use USB booting as its more convenient.
+
+# Add an elf to the spl:
+./build/cbfstool build/coreboot.pre add-payload -f notmain.elf -n fallback/payload
+
+(pocket_beagle_samples/blinker01/notmain.elf)
+
+Going to try to load this same elf from the SD card and run it now. As a first step I think I can keep the same coreboot.rom but just put it on the SD card for reading?
+
+This is how the bootblock_media.c file defines the "SRAM" media.
+
+static const struct mem_region_device boot_dev =
+	MEM_REGION_DEV_RO_INIT((void *)0x402f0400, 111616);
+
+Just need to write the equivalent to read it from SD card instead? I think?
+
+
+Doesn't seem like cbfs is finding the magic.
+
+Let me check how it's looking.
+
+unleashed read 69632 24
+CBFS: MAGIC:CBFS: 56 CBFS: 85 CBFS: 20 CBFS: 80 CBFS: 50 CBFS: 83 CBFS: 22 CBFS: 80 CBFS:
+
+From hexdump:
+00011000  4c 41 52 43 48 49 56 45  00 00 00 20 00 00 00 02  |LARCHIVE... ....|
+00011010  00 00 00 00 00 00 00 38  63 62 66 73 20 6d 61 73  |.......8cbfs mas|
+00011020  74 65 72 20 68 65 61 64  65 72 00 00 00 00 00 00  |ter header......|
+00011030  00 00 00 00 00 00 00 00  4f 52 42 43 31 31 31 32  |........ORBC1112|
+00011040  00 01 b4 00 00 00 00 04  00 00 00 40 00 01 10 00  |...........@....|
+00011050  ff ff ff ff 00 00 00 00  ff ff ff ff ff ff ff ff  |................|
+00011060  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+
+
+From printing it out:
+00011000: 4c41 5243 4849 5645 0000 0020 0000 0002
+
+So it must be my copying from my buffer to the cbfs buffer that's weird?
+Yes- because I was copying FROM instead of copying TO (facepalm)

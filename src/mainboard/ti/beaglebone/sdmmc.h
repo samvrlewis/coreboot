@@ -189,6 +189,6 @@
 
 #define REG(x)(*((volatile uint32_t *)(x)))
 
-int sd_init(void);
+int sd_init(int full_init);
 
 #endif	/* __MAINBOARD_TI_BEAGLEBONE_LEDS_H__ */

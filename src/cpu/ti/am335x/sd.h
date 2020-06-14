@@ -1,7 +1,41 @@
-#ifndef AM335X_UART_H
-#define AM335X_UART_H
+#ifndef AM335X_MMC_H
+#define AM335X_MMC_H
 
 #define MMCHS0_REG_BASE 0x48060000
+#include <inttypes.h>
+
+struct am335x_mmc {
+	uint8_t res1[0x110];
+	uint32_t sysconfig;		/* 0x110 */
+	uint32_t sysstatus;		/* 0x14 */
+	uint8_t res2[0x14];
+	uint32_t con;		/* 0x2C */
+	uint32_t pwcnt;		/* 0x30 */
+	uint32_t dll;		/* 0x34 */
+	uint8_t res3[0xcc];
+	uint32_t blk;		/* 0x104 */
+	uint32_t arg;		/* 0x108 */
+	uint32_t cmd;		/* 0x10C */
+	uint32_t rsp10;		/* 0x110 */
+	uint32_t rsp32;		/* 0x114 */
+	uint32_t rsp54;		/* 0x118 */
+	uint32_t rsp76;		/* 0x11C */
+	uint32_t data;		/* 0x120 */
+	uint32_t pstate;		/* 0x124 */
+	uint32_t hctl;		/* 0x128 */
+	uint32_t sysctl;		/* 0x12C */
+	uint32_t stat;		/* 0x130 */
+	uint32_t ie;		/* 0x134 */
+	uint8_t res4[0x4];
+	uint32_t ac12;		/* 0x13C */
+	uint32_t capa;		/* 0x140 */
+	uint32_t capa2;		/* 0x144 */
+	uint8_t res5[0xc];
+	uint32_t admaes;		/* 0x154 */
+	uint32_t admasal;		/* 0x158 */
+};
+
+
 
 #define MMCHS_SD_SYSCONFIG 0x110 /* SD system configuration */
 #define MMCHS_SD_SYSSTATUS 0x114 /* SD system status */

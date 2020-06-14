@@ -12,7 +12,7 @@ romstage-y	+= monotonic_timer.c
 
 ramstage-y	+= dmtimer.c
 ramstage-y	+= monotonic_timer.c
-ramstage-y	+= bootblock_media.c
+#ramstage-y	+= bootblock_media.c
 
 bootblock-y	+= uart.c
 romstage-y	+= uart.c

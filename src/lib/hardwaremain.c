@@ -483,7 +483,6 @@ void main(void)
 
 	init_sd();
 
-	return;
 
 	/* Handoff sleep type from romstage. */
 #if CONFIG(HAVE_ACPI_RESUME)

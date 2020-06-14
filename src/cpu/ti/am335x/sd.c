@@ -4,6 +4,7 @@
 #include <console/console.h>
 #include <commonlib/storage/sd_mmc.h>
 #include <commonlib/sd_mmc_ctrlr.h>
+#include <device/mmio.h>
 
 #include "sd.h"
 
@@ -12,7 +13,7 @@
 /**
  * Write a uint32_t value to a memory address
  */
-static inline void write32(uint32_t address, uint32_t value)
+static inline void write32x(uint32_t address, uint32_t value)
 {
 	REG(address)= value;
 }
@@ -20,7 +21,7 @@ static inline void write32(uint32_t address, uint32_t value)
 /**
  * Read an uint32_t from a memory address
  */
-static inline uint32_t read32(uint32_t address)
+static inline uint32_t read32x(uint32_t address)
 {
 	return REG(address);
 }
@@ -31,46 +32,47 @@ static inline uint32_t read32(uint32_t address)
 static inline void set32(uint32_t address, uint32_t mask, uint32_t value)
 {
 	uint32_t val;
-	val= read32(address);
+	val= read32x(address);
 	val&= ~(mask); /* clear the bits */
 	val|= (value & mask); /* apply the value using the mask */
-	write32(address, val);
+	write32x(address, val);
 }
 
-static int mmchs_init(void)
+static inline void set32_with_mask(void *addr, uint32_t mask, uint32_t value)
 {
+    uint32_t val;
+	val= read32(addr);
+	val&= ~(mask); /* clear the bits */
+	val|= (value & mask); /* apply the value using the mask */
+	write32(addr, val);
+}
 
-	int counter;
-	counter= 0;
-
+static int am335x_mmc_init(struct am335x_mmc *mmc)
+{
+    int counter=0;
 	/*
 	 * Soft reset of the controller
 	 */
 	/* Write 1 to sysconfig[0] to trigger a reset*/
-	set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCONFIG, MMCHS_SD_SYSCONFIG_SOFTRESET,
-			MMCHS_SD_SYSCONFIG_SOFTRESET);
+    set32_with_mask(&mmc->sysconfig, MMCHS_SD_SYSCONFIG_SOFTRESET, MMCHS_SD_SYSCONFIG_SOFTRESET);
 
 	/* read sysstatus to know it's done */
-	while (!(read32(MMCHS0_REG_BASE + MMCHS_SD_SYSSTATUS)
-			& MMCHS_SD_SYSSTATUS_RESETDONE)) {
-		counter++;
-	}
+	while (!(read32(&mmc->sysstatus)
+			& MMCHS_SD_SYSSTATUS_RESETDONE))
+            ;
 
-	// add a softresetall in
-	set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, MMCHS_SD_SYSCTL_SRA,
-			MMCHS_SD_SYSCTL_SRA);
+    set32_with_mask(&mmc->sysctl, MMCHS_SD_SYSCTL_SRA, MMCHS_SD_SYSCTL_SRA);
 
-	while ((read32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL)
-			& MMCHS_SD_SYSCTL_SRA)) {
-		counter++;
-		printk(BIOS_DEBUG, "waiting\n");
-	}
-
-	/*
+	while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL)
+			& MMCHS_SD_SYSCTL_SRA)) 
+        ;
+    
+    /*
 	 * Set SD default capabilities
 	 */
-	set32(MMCHS0_REG_BASE + MMCHS_SD_CAPA, MMCHS_SD_CAPA_VS_MASK,
-			MMCHS_SD_CAPA_VS18 | MMCHS_SD_CAPA_VS30);
+    write32(&mmc->hctl, MMCHS_SD_HCTL_SDVS_VS30 | MMCHS_SD_HCTL_SDBP_OFF | MMCHS_SD_HCTL_DTW_1BIT);
+	set32_with_mask(&mmc->capa, MMCHS_SD_CAPA_VS_MASK, MMCHS_SD_CAPA_VS18 | MMCHS_SD_CAPA_VS30);
+
 
 
 	/*
@@ -80,8 +82,7 @@ static int mmchs_init(void)
 	/* Configure data and command transfer (1 bit mode)*/
 	set32(MMCHS0_REG_BASE + MMCHS_SD_CON, MMCHS_SD_CON_DW8,
 			MMCHS_SD_CON_DW8_1BIT);
-	set32(MMCHS0_REG_BASE + MMCHS_SD_HCTL, MMCHS_SD_HCTL_DTW,
-			MMCHS_SD_HCTL_DTW_1BIT);
+
 
 	/* Configure card voltage  */
 	set32(MMCHS0_REG_BASE + MMCHS_SD_HCTL, MMCHS_SD_HCTL_SDVS,
@@ -92,7 +93,7 @@ static int mmchs_init(void)
 	set32(MMCHS0_REG_BASE + MMCHS_SD_HCTL, MMCHS_SD_HCTL_SDBP,
 			MMCHS_SD_HCTL_SDBP_ON);
 
-	while ((read32(MMCHS0_REG_BASE + MMCHS_SD_HCTL) & MMCHS_SD_HCTL_SDBP)
+	while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_HCTL) & MMCHS_SD_HCTL_SDBP)
 			!= MMCHS_SD_HCTL_SDBP_ON) {
 		counter++;
 	}
@@ -106,7 +107,7 @@ static int mmchs_init(void)
 			(240 << 6));
 	set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, MMCHS_SD_SYSCTL_CEN,
 			MMCHS_SD_SYSCTL_CEN_EN);
-	while ((read32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL) & MMCHS_SD_SYSCTL_ICS)
+	while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL) & MMCHS_SD_SYSCTL_ICS)
 			!= MMCHS_SD_SYSCTL_ICS_STABLE)
 		;
 
@@ -136,13 +137,13 @@ static int mmchs_init(void)
 	 */
 	set32(MMCHS0_REG_BASE + MMCHS_SD_CON, MMCHS_SD_CON_INIT,
 			MMCHS_SD_CON_INIT_INIT);
-	write32(MMCHS0_REG_BASE + MMCHS_SD_CMD, 0x00); /* command 0 , type other commands , not response etc) */
+	write32x(MMCHS0_REG_BASE + MMCHS_SD_CMD, 0x00); /* command 0 , type other commands , not response etc) */
 
-	while ((read32(MMCHS0_REG_BASE + MMCHS_SD_STAT) & MMCHS_SD_STAT_CC)
+	while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT) & MMCHS_SD_STAT_CC)
 			!= MMCHS_SD_STAT_CC_RAISED) {
-		if (read32(MMCHS0_REG_BASE + MMCHS_SD_STAT) & 0x8000) {
+		if (read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT) & 0x8000) {
 			printk(BIOS_DEBUG,"%s, error stat  %x\n", __FUNCTION__,
-					read32(MMCHS0_REG_BASE + MMCHS_SD_STAT));
+					read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT));
 			return 1;
 		}
 		counter++;
@@ -167,25 +168,25 @@ static int send_cmd_base(uint32_t command, uint32_t arg, uint32_t resp_type)
 
 	uart_putf("send cmdbase %d %d %d\n", command, arg, resp_type);
 	/* Read current interrupt status and fail it an interrupt is already asserted */
-	if ((read32(MMCHS0_REG_BASE + MMCHS_SD_STAT) & 0xffffu)) {
+	if ((read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT) & 0xffffu)) {
 		printk(BIOS_DEBUG,"%s, interrupt already raised stat  %08x\n", __FUNCTION__,
-				read32(MMCHS0_REG_BASE + MMCHS_SD_STAT));
+				read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT));
 		return 1;
 	}
 
 	/* Set arguments */
-	write32(MMCHS0_REG_BASE + MMCHS_SD_ARG, arg);
+	write32x(MMCHS0_REG_BASE + MMCHS_SD_ARG, arg);
 	/* Set command */
 	set32(MMCHS0_REG_BASE + MMCHS_SD_CMD, MMCHS_SD_CMD_MASK, command);
 
 	/* Wait for completion */
-	while ((read32(MMCHS0_REG_BASE + MMCHS_SD_STAT) & 0xffffu) == 0x0) {
+	while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT) & 0xffffu) == 0x0) {
 		count++;
 	}
 
-	if (read32(MMCHS0_REG_BASE + MMCHS_SD_STAT) & 0x8000) {
+	if (read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT) & 0x8000) {
 		printk(BIOS_DEBUG,"%s, error stat  %08x\n", __FUNCTION__,
-				read32(MMCHS0_REG_BASE + MMCHS_SD_STAT));
+				read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT));
 		set32(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_STAT_ERROR_MASK,
 				0xffffffffu);	// clear errors
 		// We currently only support 2.0, not responding to
@@ -196,15 +197,15 @@ static int send_cmd_base(uint32_t command, uint32_t arg, uint32_t resp_type)
 		/*
 		 * Command with busy repsonse *CAN* also set the TC bit if they exit busy
 		 */
-		while ((read32(MMCHS0_REG_BASE + MMCHS_SD_STAT)
+		while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT)
 				& MMCHS_SD_IE_TC_ENABLE_ENABLE) == 0) {
 			count++;
 		}
-		write32(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_TC_ENABLE_CLEAR);
+		write32x(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_TC_ENABLE_CLEAR);
 	}
 
 	/* clear the cc status */
-	write32(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_CC_ENABLE_CLEAR);
+	write32x(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_CC_ENABLE_CLEAR);
 	return 0;
 }
 
@@ -233,31 +234,31 @@ static int send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, struct 
 			return 1;
 		}
 
-		while ((read32(MMCHS0_REG_BASE + MMCHS_SD_STAT)
+		while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT)
 			& MMCHS_SD_IE_BRR_ENABLE_ENABLE) == 0) {
 			count++;
 		}
 
-		if (!(read32(MMCHS0_REG_BASE + MMCHS_SD_PSTATE) & MMCHS_SD_PSTATE_BRE_EN)) {
+		if (!(read32x(MMCHS0_REG_BASE + MMCHS_SD_PSTATE) & MMCHS_SD_PSTATE_BRE_EN)) {
 			return 1; /* We are not allowed to read data from the data buffer */
 		}
 
 		for (count= 0; count < 512; count+= 4) {
-			value= read32(MMCHS0_REG_BASE + MMCHS_SD_DATA);
+			value= read32x(MMCHS0_REG_BASE + MMCHS_SD_DATA);
 			data->dest[count]= *((char*) &value);
 			data->dest[count + 1]= *((char*) &value + 1);
 			data->dest[count + 2]= *((char*) &value + 2);
 			data->dest[count + 3]= *((char*) &value + 3);
 		}
 
-		while ((read32(MMCHS0_REG_BASE + MMCHS_SD_STAT)
+		while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT)
 			& MMCHS_SD_IE_TC_ENABLE_ENABLE) == 0) {
 			count++;
 		}
-		write32(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_TC_ENABLE_CLEAR);
+		write32x(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_TC_ENABLE_CLEAR);
 
 		/* clear and disable the bbr interrupt */
-		write32(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_BRR_ENABLE_CLEAR);
+		write32x(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_BRR_ENABLE_CLEAR);
 		set32(MMCHS0_REG_BASE + MMCHS_SD_IE, MMCHS_SD_IE_BRR_ENABLE,
 				MMCHS_SD_IE_BRR_ENABLE_DISABLE);
 		return 0;
@@ -296,13 +297,13 @@ static int send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, struct 
 		case CARD_RSP_R1:
 		case CARD_RSP_R1b:
 		case CARD_RSP_R3:
-			cmd->response[0] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP10);
+			cmd->response[0] = read32x(MMCHS0_REG_BASE + MMCHS_SD_RSP10);
 			break;
 		case CARD_RSP_R2:
-			cmd->response[3] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP10);
-			cmd->response[2] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP32);
-			cmd->response[1] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP54);
-			cmd->response[0] = read32(MMCHS0_REG_BASE + MMCHS_SD_RSP76);
+			cmd->response[3] = read32x(MMCHS0_REG_BASE + MMCHS_SD_RSP10);
+			cmd->response[2] = read32x(MMCHS0_REG_BASE + MMCHS_SD_RSP32);
+			cmd->response[1] = read32x(MMCHS0_REG_BASE + MMCHS_SD_RSP54);
+			cmd->response[0] = read32x(MMCHS0_REG_BASE + MMCHS_SD_RSP76);
 			break;
 		case CARD_RSP_NONE:
 			break;
@@ -373,14 +374,14 @@ static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 		set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, (0x1 << 0) | (0xF << 16), (0x00 << 0) | (0xE << 16));
 		set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, (0x1 << 0) | (0x3ff << 6), (0x01 << 0) | (1 << 6));
 
-		while ((read32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL) & MMCHS_SD_SYSCTL_ICS)
+		while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL) & MMCHS_SD_SYSCTL_ICS)
 			!= MMCHS_SD_SYSCTL_ICS_STABLE)
 		;
 
 		set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, MMCHS_SD_SYSCTL_CEN,
 			MMCHS_SD_SYSCTL_CEN_EN);
 
-		while ((read32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL) & MMCHS_SD_SYSCTL_ICS)
+		while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL) & MMCHS_SD_SYSCTL_ICS)
 			!= MMCHS_SD_SYSCTL_ICS_STABLE)
 		;
 		
@@ -391,14 +392,59 @@ static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 	printk(BIOS_DEBUG, "%s: called, bus_width: %x, clock: %d -> %d\n", __func__,
 		  ctrlr->bus_width, ctrlr->request_hz, ctrlr->timing);
 }
-	uint8_t buffer[1048576];
+
+uint8_t buffer[111616];
+
+static struct storage_media media;
+static struct sd_mmc_ctrlr mmc_ctrlr;
+
+#include <boot_device.h>
+#include <symbols.h>
+#include <cbfs.h>
+
+static ssize_t unleashed_sd_readat(const struct region_device *rdev, void *dest,
+					size_t offset, size_t count)
+{
+
+	// think I need to find the block that they want based on the offset
+	// maybe easier just to preread it out to a buffer.. 
+	printk(BIOS_DEBUG, "unleashed read %d %d\n", offset, count);
+
+	uint8_t* dest8 = dest;
+
+	for (int i=0; i<count; i++)
+	{
+		 dest8[i] = buffer[offset+i];
+	}
+
+	return count;
+	
+	
+	//storage_block_read(&media, offset, count/512, &dest);
+	//return count;
+}
+
+static const struct region_device_ops am335x_sd_ops = {
+	.mmap   = mmap_helper_rdev_mmap,
+	.munmap = mmap_helper_rdev_munmap,
+	.readat = unleashed_sd_readat,
+};
+
+
+static struct mmap_helper_region_device sd_mdev =
+	MMAP_HELPER_REGION_INIT(&am335x_sd_ops, 0, 111616);
+
+const struct region_device *boot_device_ro(void)
+{
+	return &sd_mdev.rdev;
+}
 
 void init_sd(void)
 {
-	struct storage_media media;
-	struct sd_mmc_ctrlr mmc_ctrlr;
+	
+    struct am335x_mmc *mmc = (void*)0x48060000;
 
-	mmchs_init();
+	am335x_mmc_init(mmc);
 
 	memset(&mmc_ctrlr, 0, sizeof(mmc_ctrlr));
 	memset(&buffer, 0, sizeof(buffer));
@@ -434,9 +480,9 @@ void init_sd(void)
 
 	storage_display_setup(&media);
 
-	storage_block_read(&media, 0, 1000, &buffer);
+	storage_block_read(&media, 0, 111616/512, &buffer);
 
-	for (int i=0; i<1024; i+=2)
+	for (int i=0x0010000; i<0x13000; i+=2)
 	{
 
 		if (i%16==0)
@@ -445,6 +491,9 @@ void init_sd(void)
 		}
 		printk(BIOS_DEBUG, "%02x%02x ", buffer[i], buffer[i+1]);
 	}
+
+	mmap_helper_device_init(&sd_mdev,
+			_cbfs_cache, REGION_SIZE(cbfs_cache));
 
 	//storage_block_read(&media, 0, 1, &buffer);
 
