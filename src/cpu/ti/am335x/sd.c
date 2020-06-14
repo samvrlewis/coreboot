@@ -372,7 +372,7 @@ static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 			~MMCHS_SD_SYSCTL_CEN_EN);
 
 		set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, (0x1 << 0) | (0xF << 16), (0x00 << 0) | (0xE << 16));
-		set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, (0x1 << 0) | (0x3ff << 6), (0x01 << 0) | (1 << 6));
+		set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, (0x1 << 0) | (0x3ff << 6), (0x01 << 0) | (4 << 6));
 
 		while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL) & MMCHS_SD_SYSCTL_ICS)
 			!= MMCHS_SD_SYSCTL_ICS_STABLE)
