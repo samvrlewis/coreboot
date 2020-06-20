@@ -1122,3 +1122,238 @@ From printing it out:
 
 So it must be my copying from my buffer to the cbfs buffer that's weird?
 Yes- because I was copying FROM instead of copying TO (facepalm)
+
+
+http://au.mirror.archlinuxarm.org/os/ArchLinuxARM-am33x-latest.tar.gz
+
+console=tty0 console=ttyO0,115200n8
+
+When run, get:
+
+Checking segment from ROM address 0x81200000
+SELF segment doesn't target RAM: 0x00090000, 4224 bytes
+ 0. 00000000402f4000-00000000402f7fff: RAMSTAGE
+ 1. 000000004030b000-000000004030cfff: RAMSTAGE
+ 2. 0000000080200000-00000000802effff: RAMSTAGE
+ 3. 00000000802f0000-00000000812effff: RAM
+ 4. 000000008ffdc000-000000008fffffff: CONFIGURATION TABLES
+Payload not loaded.
+
+
+# Booting a kernel in uboot
+
+make J=10 ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- LOADADDR=0x80000000 uImage dtbs
+
+arch/arm/boot/dts/am335x-boneblack.dtb
+
+	# The dash is where you could put an initramfs
+	bootz ${kernel_addr_r} - ${fdt_addr_r} 
+
+
+	# Old kernel, works
+	ext4load mmc 0:1 ${kernel_addr_r} boot/vmlinuz-4.19.94-ti-r42
+	ext4load mmc 0:1 ${fdt_addr_r} boot/dtbs/4.19.94-ti-r42/am335x-boneblack.dtb
+	setenv bootargs console=ttyO0,115200n8
+	bootz ${kernel_addr_r} - ${fdt_addr_r} 
+
+	# New kernel - also works!
+	ext4load mmc 0:1 ${kernel_addr_r} zImage
+	ext4load mmc 0:1 ${fdt_addr_r} bbb.dtb
+	setenv bootargs console=ttyO0,115200n8
+	bootz ${kernel_addr_r} - ${fdt_addr_r} 
+
+
+	ext4load mmc 0:1 ${fdt_addr_r} fitimage.itb
+	setenv bootargs console=ttyO0,115200n8
+	bootm ${fdt_addr_r}
+
+# Create a fitimage
+
+	/dts-v1/;
+	/ {
+		description = "Simple image with single Linux kernel";
+		images {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			kernel@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+				description = "Linux kernel";
+				data = /incbin/("arch/arm/boot/zImage");
+				type = "kernel";
+				arch = "arm";
+				os = "linux";
+				compression = "none";
+				load = <0x82000000>;
+				entry = <0x82000000>;
+				hash@0 {
+					reg = <0>;
+					algo = "crc32";
+				};
+				hash@1 {
+					reg = <1>;
+					algo = "sha1";
+				};
+			};
+
+			fdt@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+				description = "Device Tree blob";
+				data = /incbin/("arch/arm/boot/dts/am335x-boneblack.dtb");
+				type = "flat_dt";
+				arch = "arm";
+				compression = "none";
+				hash@0 {
+					reg = <0>;
+					algo = "crc32";
+				};
+				hash@1 {
+					reg = <1>;
+					algo = "sha1";
+				};
+			};
+		};
+
+		configurations {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			default = "config@0";
+
+			config@0 {
+				reg = <0>;
+				description = "Boot Linux kernel";
+				kernel = "kernel@0";
+				fdt = "fdt@0";
+			};
+		};
+	};
+
+	mkimage -f fitimage.its fitimage.itb
+
+https://android.googlesource.com/device/ti/bootloader/uboot/+/6671d3fe57d47e341530a7c6deb3c8d43bad202e/doc/uImage.FIT/source_file_format.txt
+
+Next steps: see if I can boot with the fit_payload.c from arm64. If not, see what needs to be changed for arm.
+
+# Adding fit image
+
+./build/cbfstool build/coreboot.pre add-payload -f fitimagewithserial.itb -n fallback/payload -r PL
+
+cp ./build/coreboot.pre /dev/sde
+
+dd if=build/coreboot.pre of=bbimages/spl bs=1024 count=109
+
+# Coreboot fit image support for arm
+
+Need to add support to boot fit images on arm (32).
+
+There's some code at /home/sam/work/third-party/u-boot-2020.04/arch/arm/lib/bootm.c - is quite informative as it the arm64 code is just ifdefed. Should be able to figure out what I need to change in order to boot in arm from it.
+
+https://www.kernel.org/doc/Documentation/arm/Booting
+
+Need to:
+
+	Set machine type to all 1s (r1)
+	Load DT to memory
+		"A safe location is just above the 128MiB boundary from start of RAM."
+	Set physical address of DT to r2
+	Turn off MMU?
+	Turn off CPU interrupts?
+	Turn off data cache?
+
+Not up to it yet but I'm not quite sure how the kernel should be told about where the initramfs is?
+
+	chosen {
+		bootargs = "console=ttyS0,115200 loglevel=8";
+		initrd-start = <0xc8000000>;
+		initrd-end = <0xc8200000>;
+	}; ??
+
+^ I think it can choose
+
+The "Relocating uncompressed kernel@0 to 0x80300000" is suspicious. Though maybe it doesnt need to be uncompressed anyway?
+
+	0. 00000000402f4000-00000000402f7fff: RAMSTAGE
+	1. 000000004030b000-000000004030cfff: RAMSTAGE
+	2. 0000000080200000-00000000802effff: RAMSTAGE
+	3. 00000000802f0000-00000000802fffff: RAM
+	4. 0000000080300000-0000000080c91fff: PAYLOAD
+	5. 0000000080c92000-0000000087dfffff: RAM
+	6. 0000000087e00000-0000000087e1cfff: PAYLOAD
+	7. 0000000087e1d000-000000008a2effff: RAM
+	8. 000000008ffdc000-000000008fffffff: CONFIGURATION TABLES
+	FIT: Flattening FDT to 0x87e00000
+	FIT: Relocating uncompressed kernel@0 to 0x80300000
+	BS: Exiting BS_PAYLOAD_LOAD state.
+	BS: BS_PAYLOAD_LOAD run times (exec / console): 4294831067 / 136586 ms
+	----------------------------------------
+	BS: BS_PAYLOAD_LOAD exit times (exec / console): 0 / 4 ms
+	BS: Entering BS_PAYLOAD_BOOT state.
+	Jumping to boot code at 0x80300000(0x87e00000)
+	CPU0: stack: 0x4030be00 - 0x4030ce00, lowest used address 0x4030c990, stack used: 1136 bytes
+	turned it off
+
+
+Maybe I can try loading the kernel and dtb myself from memory? Rather than using fit?
+
+zImage               10031616  , 10031616/512 = 19593
+am335x-boneblack.dtb 93466, 93466/512 = 182.55 
+
+So put the Zimage in the first 19593 pages
+then put the dtb in the next 183 pages
+
+Load them into memory at the uboot offsets (0x88000000 for dtb and 0x82000000 for the kernel) then execute the kernel?
+
+Confirmed that they are bootable in uboot with:
+
+=> ext4load mmc 0:1 ${kernel_addr_r} /sam/zImage
+10031616 bytes read in 795 ms (12 MiB/s)
+=> ext4load mmc 0:1 ${fdt_addr_r} /sam/am335x-boneblack.dtb
+93466 bytes read in 175 ms (521.5 KiB/s)
+=> bootz ${kernel_addr_r} - ${fdt_addr_r}
+
+
+00991000  0a c2 3f e0 dc 85 6e 40  b9 0e 4a b5 02 37 1d 95  |..?...n@..J..7..|
+00991010  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+*
+00991200
+
+
+00991200  01 9e 47 10 21 bd 7e f8  54 cb 7f 6d e0 28 01 be  |..G.!.~.T..m.(..|
+00991210  47 2c 01 9f 6b b0 30 01  9f 47 80 38 01 9f 16 68  |G,..k.0..G.8...h|
+00991220  3c 01 9c 6a 7c 88 7f 48  38 44 01 9c 48 7c 89 7f  |<..j|..H8D..H|..|
+00991230  21 08 4c 01 9f 48 f0 4f  01 9f 47 d8 53 01 9f 65  |!.L..H.O..G.S..e|
+
+cat zImage am335x-boneblack.dtb >> kernelanddtb
+
+Lucky in that the zImage is 512 byte aligned. Maybe that's intention though lol?
+
+Now need to copy from:
+
+Page 0 to page 19593 to 0x82000000
+
+Page 19594 to page 19777 to 0x88000000
+
+
+This works!!!!!!!!!!!!!
+
+
+	uint64_t blocks_read = storage_block_read(&media, 0, 19593, (void*)(0x82000000));
+	blocks_read = storage_block_read(&media, 19593, 185, (void*)(0x88000000));
+
+uint8_t* fdt = (uint8_t*)(0x88000000);
+			for (int i=0; i < 20; i++)
+			{
+					printk(BIOS_DEBUG, "%x\n", fdt[i]);
+			}
+
+	dcache_mmu_disable();
+	
+
+	printk(BIOS_DEBUG, "turned it off\n");
+	void (*kernel_entry)(void *, void*, void*);
+	kernel_entry = (void*)(0x82000000);
+	kernel_entry(0, (void*)~0, (void*)(0x88000000));
