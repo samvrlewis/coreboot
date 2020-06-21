@@ -4,6 +4,8 @@
 #define MMCHS0_REG_BASE 0x48060000
 #include <inttypes.h>
 
+#include <commonlib/sd_mmc_ctrlr.h>
+
 struct am335x_mmc {
 	uint8_t res1[0x110];
 	uint32_t sysconfig;		/* 0x110 */
@@ -35,6 +37,11 @@ struct am335x_mmc {
 	uint32_t admasal;		/* 0x158 */
 };
 
+struct am335x_mmc_host {
+	struct sd_mmc_ctrlr sd_mmc_ctrlr;
+
+	struct am335x_mmc *reg;
+};
 
 
 #define MMCHS_SD_SYSCONFIG 0x110 /* SD system configuration */

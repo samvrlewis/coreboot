@@ -60,6 +60,7 @@ static int am335x_mmc_init_sam(struct am335x_mmc *mmc)
 	// one diff - sdbp is turned on later
 	write32(&mmc->hctl, MMCHS_SD_HCTL_SDVS_VS30 | MMCHS_SD_HCTL_DTW_1BIT);
 
+	// enable sd bus power
 	write32(&mmc->hctl, read32(&mmc->hctl) | MMCHS_SD_HCTL_SDBP_ON);
 
 	while(!(read32(&mmc->hctl) & MMCHS_SD_HCTL_SDBP)) { printk(BIOS_DEBUG, "waiting on %d\n", __LINE__); }
@@ -259,6 +260,8 @@ static int send_cmd_base(uint32_t command, uint32_t arg, uint32_t resp_type)
 	return 0;
 }
 
+
+
 static int send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, struct mmc_data *data)
 {
 
@@ -366,6 +369,15 @@ static int send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, struct 
 	return 0;
 }
 
+static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, struct mmc_data *data)
+{
+	struct am335x_mmc_host *mmc;
+
+	mmc = container_of(ctrlr, struct am335x_mmc_host, sd_mmc_ctrlr);
+	
+	return send_cmd(ctrlr, cmd, data);
+}
+
 static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 {
 
@@ -446,7 +458,7 @@ static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 uint8_t buffer[10200*1024];
 
 static struct storage_media media;
-static struct sd_mmc_ctrlr mmc_ctrlr;
+static struct am335x_mmc_host mmc_host;
 
 #include <boot_device.h>
 #include <symbols.h>
@@ -494,6 +506,10 @@ void init_sd(void)
 	
     struct am335x_mmc *mmc = (void*)0x48060000;
 
+	mmc_host.reg = mmc;
+
+	struct sd_mmc_ctrlr *mmc_ctrlr = &mmc_host.sd_mmc_ctrlr;
+
 
 	if (0)
 	{
@@ -503,19 +519,19 @@ void init_sd(void)
 		am335x_mmc_init_sam(mmc);
 	}
 
-	memset(&mmc_ctrlr, 0, sizeof(mmc_ctrlr));
+	memset(mmc_ctrlr, 0, sizeof(mmc_ctrlr));
 	memset(&buffer, 0, sizeof(buffer));
-	mmc_ctrlr.send_cmd = &send_cmd;
-	mmc_ctrlr.set_ios = &set_ios;
+	mmc_ctrlr->send_cmd = &am335x_send_cmd;
+	mmc_ctrlr->set_ios = &set_ios;
 
-	mmc_ctrlr.voltages = MMC_VDD_30_31;
-	mmc_ctrlr.b_max = 1;
+	mmc_ctrlr->voltages = MMC_VDD_30_31;
+	mmc_ctrlr->b_max = 1;
 	//mmc_ctrlr.caps = DRVR_CAP_AUTO_CMD12 | DRVR_CAP_REMOVABLE;
-	mmc_ctrlr.bus_width = 1;
-	mmc_ctrlr.f_max = 24000000;
-	mmc_ctrlr.f_min = 1;
+	mmc_ctrlr->bus_width = 1;
+	mmc_ctrlr->f_max = 24000000;
+	mmc_ctrlr->f_min = 1;
 
-	mmc_ctrlr.bus_hz = 1;
+	mmc_ctrlr->bus_hz = 1;
 
 	//mmc_ctrlr.timing = BUS_TIMING_SD_HS;
 	/*mmc_ctrlr.udelay_wait_after_cmd = 10000;
@@ -524,14 +540,14 @@ void init_sd(void)
 
 	
 
-	media.ctrlr = &mmc_ctrlr;
+	media.ctrlr = mmc_ctrlr;
 
 	printk(BIOS_DEBUG, "pre storage\n");
 
-	storage_setup_media(&media, &mmc_ctrlr);
+	storage_setup_media(&media, mmc_ctrlr);
 
-	mmc_ctrlr.request_hz = CLOCK_25MHZ;
-	set_ios(&mmc_ctrlr);
+	mmc_ctrlr->request_hz = CLOCK_25MHZ;
+	set_ios(mmc_ctrlr);
 
 	printk(BIOS_DEBUG, "post storage\n");
 
