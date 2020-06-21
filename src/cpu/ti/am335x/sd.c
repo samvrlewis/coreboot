@@ -47,6 +47,55 @@ static inline void set32_with_mask(void *addr, uint32_t mask, uint32_t value)
 	write32(addr, val);
 }
 
+static int am335x_mmc_init_sam(struct am335x_mmc *mmc)
+{
+	// Follows the initialisiation guide from the AM335X technical reference manual
+	write32(&mmc->sysconfig, read32(&mmc->sysconfig) | MMCHS_SD_SYSCONFIG_SOFTRESET);
+
+	while (!(read32(&mmc->sysstatus) & MMCHS_SD_SYSSTATUS_RESETDONE)) { printk(BIOS_DEBUG, "waiting on %d\n", __LINE__); }
+
+	// Set SD capabilities
+	write32(&mmc->capa, MMCHS_SD_CAPA_VS18 | MMCHS_SD_CAPA_VS30);
+
+	// one diff - sdbp is turned on later
+	write32(&mmc->hctl, MMCHS_SD_HCTL_SDVS_VS30 | MMCHS_SD_HCTL_DTW_1BIT);
+
+	write32(&mmc->hctl, read32(&mmc->hctl) | MMCHS_SD_HCTL_SDBP_ON);
+
+	while(!(read32(&mmc->hctl) & MMCHS_SD_HCTL_SDBP)) { printk(BIOS_DEBUG, "waiting on %d\n", __LINE__); }
+
+	// set initial clock speed
+	write32(&mmc->sysctl, read32(&mmc->sysctl) | 240 << 6);
+
+	// enable internal internal clock and clock to card
+	write32(&mmc->sysctl, read32(&mmc->sysctl) | MMCHS_SD_SYSCTL_ICE | MMCHS_SD_SYSCTL_CEN);
+
+	//wait for clock to be stable
+	while(!(read32(&mmc->sysctl) & MMCHS_SD_SYSCTL_ICS)) { printk(BIOS_DEBUG, "waiting on %d\n", __LINE__); }
+
+	//enable interrupts
+	write32(&mmc->ie, 0xffffffffu);
+
+	//clear interrupts
+	write32(&mmc->stat, 0xffffffffu);
+
+	// card detection, identification and selection
+	write32(&mmc->con, read32(&mmc->con) | MMCHS_SD_CON_INIT);
+
+	write32(&mmc->cmd, 0x00);
+
+	// wait for command complete
+	while (!(read32(&mmc->stat) & MMCHS_SD_STAT_CC)) { printk(BIOS_DEBUG, "waiting on %d\n", __LINE__); }
+
+	// clear interrupts
+	write32(&mmc->stat, 0xffffffffu);
+
+	// finish initialisation
+	write32(&mmc->con, read32(&mmc->con) & ~MMCHS_SD_CON_INIT);
+
+	return 0;
+}
+
 static int am335x_mmc_init(struct am335x_mmc *mmc)
 {
     int counter=0;
@@ -57,10 +106,11 @@ static int am335x_mmc_init(struct am335x_mmc *mmc)
     set32_with_mask(&mmc->sysconfig, MMCHS_SD_SYSCONFIG_SOFTRESET, MMCHS_SD_SYSCONFIG_SOFTRESET);
 
 	/* read sysstatus to know it's done */
-	while (!(read32(&mmc->sysstatus)
-			& MMCHS_SD_SYSSTATUS_RESETDONE))
-            ;
+	
+    
 
+	// The bootROM may have used the controller, do a soft reset all to get the controller
+	// to a known state
     set32_with_mask(&mmc->sysctl, MMCHS_SD_SYSCTL_SRA, MMCHS_SD_SYSCTL_SRA);
 
 	while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL)
@@ -166,7 +216,7 @@ static int send_cmd_base(uint32_t command, uint32_t arg, uint32_t resp_type)
 {
 	int count= 0;
 
-	uart_putf("send cmdbase %d %d %d\n", command, arg, resp_type);
+	//uart_putf("send cmdbase %d %d %d\n", command, arg, resp_type);
 	/* Read current interrupt status and fail it an interrupt is already asserted */
 	if ((read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT) & 0xffffu)) {
 		printk(BIOS_DEBUG,"%s, interrupt already raised stat  %08x\n", __FUNCTION__,
@@ -214,7 +264,7 @@ static int send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, struct 
 
     uint32_t count;
 	uint32_t value;
-	uart_putf("send cmd %d %d %d\n", cmd->cmdidx, cmd->cmdarg, cmd->resp_type);
+	//uart_putf("send cmd %d %d %d\n", cmd->cmdidx, cmd->cmdarg, cmd->resp_type);
 
 	int ret = 0;
 
@@ -393,7 +443,7 @@ static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 		  ctrlr->bus_width, ctrlr->request_hz, ctrlr->timing);
 }
 
-uint8_t buffer[122880];
+uint8_t buffer[10200*1024];
 
 static struct storage_media media;
 static struct sd_mmc_ctrlr mmc_ctrlr;
@@ -432,7 +482,7 @@ static const struct region_device_ops am335x_sd_ops = {
 
 
 static struct mmap_helper_region_device sd_mdev =
-	MMAP_HELPER_REGION_INIT(&am335x_sd_ops, 0, 122880);
+	MMAP_HELPER_REGION_INIT(&am335x_sd_ops, 0, 10200*1024);
 
 const struct region_device *boot_device_ro(void)
 {
@@ -444,7 +494,14 @@ void init_sd(void)
 	
     struct am335x_mmc *mmc = (void*)0x48060000;
 
-	am335x_mmc_init(mmc);
+
+	if (0)
+	{
+		am335x_mmc_init(mmc);
+	} else {
+
+		am335x_mmc_init_sam(mmc);
+	}
 
 	memset(&mmc_ctrlr, 0, sizeof(mmc_ctrlr));
 	memset(&buffer, 0, sizeof(buffer));
@@ -480,7 +537,35 @@ void init_sd(void)
 
 	storage_display_setup(&media);
 
-	storage_block_read(&media, 0, 122880/512, &buffer);
+	printk(BIOS_DEBUG, "reading blocks\n");
+
+
+	uint64_t blocks_read = storage_block_read(&media, 0, 19593, (void*)(0x82000000));
+	blocks_read = storage_block_read(&media, 19593, 185, (void*)(0x88000000));
+
+uint8_t* fdt = (uint8_t*)(0x88000000);
+			for (int i=0; i < 20; i++)
+			{
+					printk(BIOS_DEBUG, "%x\n", fdt[i]);
+			}
+
+	dcache_mmu_disable();
+	
+
+	printk(BIOS_DEBUG, "turned it off\n");
+	void (*kernel_entry)(void *, void*, void*);
+	kernel_entry = (void*)(0x82000000);
+	kernel_entry(0, (void*)~0, (void*)(0x88000000));
+
+	return;
+
+	blocks_read = storage_block_read(&media, 0, (10200*1024)/512, &buffer);
+
+	printk(BIOS_DEBUG, "read %llu blocks\n", blocks_read);
+	mmap_helper_device_init(&sd_mdev,
+			_cbfs_cache, REGION_SIZE(cbfs_cache));
+
+	return;
 
 	for (int i=0x0010000; i<0x13000; i+=2)
 	{
@@ -492,8 +577,6 @@ void init_sd(void)
 		printk(BIOS_DEBUG, "%02x%02x ", buffer[i], buffer[i+1]);
 	}
 
-	mmap_helper_device_init(&sd_mdev,
-			_cbfs_cache, REGION_SIZE(cbfs_cache));
 
 	//storage_block_read(&media, 0, 1, &buffer);
 
