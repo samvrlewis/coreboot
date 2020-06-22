@@ -372,14 +372,132 @@ static int send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, struct 
 static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, struct mmc_data *data)
 {
 	struct am335x_mmc_host *mmc;
+	struct am335x_mmc *reg;
+
+	//printk(BIOS_DEBUG, "Sending command %d\n", cmd->cmdidx);
+
 
 	mmc = container_of(ctrlr, struct am335x_mmc_host, sd_mmc_ctrlr);
-	
-	return send_cmd(ctrlr, cmd, data);
+	reg = mmc->reg;
+
+
+		if (read32(&reg->stat) & 0xffffu)
+	{
+		printk(BIOS_DEBUG, "interrupt already raised\n");
+		return 1;
+	}
+
+
+	uint32_t transfer_type = 0;
+
+	if (data != NULL && data->flags & DATA_FLAG_READ) {
+		write32(&mmc->reg->ie, MMCHS_SD_IE_BRR_ENABLE_ENABLE);
+
+		//printk(BIOS_DEBUG, "block size %d\n", data->blocksize);
+		write32(&mmc->reg->blk, data->blocksize);
+		transfer_type |= MMCHS_SD_CMD_DP_DATA | MMCHS_SD_CMD_DDIR_READ;
+	}
+
+	if (cmd->resp_type & CARD_RSP_CRC) {
+		//transfer_type |= MMCHS_SD_CMD_CCCE;
+	}
+
+	switch (cmd->resp_type) {
+		case CARD_RSP_R1b:
+			transfer_type |= MMCHS_SD_CMD_RSP_TYPE_48B_BUSY;
+			break;
+		case CARD_RSP_R1:
+		case CARD_RSP_R3:
+			transfer_type |= MMCHS_SD_CMD_RSP_TYPE_48B;
+			break;
+		case CARD_RSP_R2:
+			transfer_type |= MMCHS_SD_CMD_RSP_TYPE_136B;
+			break;
+		case CARD_RSP_NONE:
+			transfer_type |= MMCHS_SD_CMD_RSP_TYPE_NO_RESP;
+			break;
+		default:
+			return 1;
+	}
+
+	if (cmd->cmdidx == MMC_CMD_SET_BLOCKLEN) {
+		write32(&mmc->reg->blk, cmd->cmdarg);
+		return 0;
+	}
+
+	uint32_t command = (cmd->cmdidx << 24) | transfer_type;
+
+	write32(&reg->arg, cmd->cmdarg);
+	write32(&reg->cmd, command);
+
+	while ((read32(&reg->stat) & 0xffffu) == 0) ; //{ printk(BIOS_DEBUG, "waiting on %d\n", __LINE__); }
+
+	uint32_t stat = read32(&reg->stat);
+
+	if (stat & 0x8000) {
+		printk(BIOS_DEBUG, "Error while reading %08x\n", stat);
+		write32(&reg->stat, 0xffffffffu);
+		return 1;
+	}
+		
+
+	if (cmd->resp_type == CARD_RSP_R1b) {
+		while (!(read32(&reg->stat) & MMCHS_SD_IE_TC_ENABLE_ENABLE)) { printk(BIOS_DEBUG, "waiting on %d\n", __LINE__); }
+		write32(&reg->stat, MMCHS_SD_IE_TC_ENABLE_ENABLE);
+	}
+
+	write32(&reg->stat, MMCHS_SD_IE_CC_ENABLE_CLEAR);
+
+		/* copy response into cmd->resp	 */
+	switch (cmd->resp_type) {
+		case CARD_RSP_R1:
+		case CARD_RSP_R1b:
+		case CARD_RSP_R3:
+			cmd->response[0] = read32(&reg->rsp10);
+			break;
+		case CARD_RSP_R2:
+			cmd->response[3] = read32(&reg->rsp10);
+			cmd->response[2] = read32(&reg->rsp32);
+			cmd->response[1] = read32(&reg->rsp54);
+			cmd->response[0] = read32(&reg->rsp76);
+			break;
+		case CARD_RSP_NONE:
+			break;
+	}
+
+	if (data != NULL && data->flags & DATA_FLAG_READ) {
+		while(!(read32(&reg->stat) & MMCHS_SD_IE_BRR_ENABLE_ENABLE));
+
+		if (!(read32(&reg->pstate) & MMCHS_SD_PSTATE_BRE_EN)) {
+			printk(BIOS_DEBUG, "Can't read from data buffer\n");
+			return 1;
+		}
+
+		for (int count = 0; count < data->blocksize; count+=4)
+		{
+			uint32_t value= read32(&reg->data);
+			data->dest[count]= *((char*) &value);
+			data->dest[count + 1]= *((char*) &value + 1);
+			data->dest[count + 2]= *((char*) &value + 2);
+			data->dest[count + 3]= *((char*) &value + 3); 
+		}
+
+		write32(&reg->stat, MMCHS_SD_IE_TC_ENABLE_CLEAR);
+		write32(&reg->stat, MMCHS_SD_IE_BRR_ENABLE_CLEAR);
+		write32(&mmc->reg->ie, MMCHS_SD_IE_BRR_ENABLE_DISABLE);
+	}
+
+	if (0)
+	{
+		send_cmd(NULL, NULL, NULL);
+	}
+
+	return 0;
 }
 
 static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 {
+	printk(BIOS_DEBUG, "Set ios\n");
 
 	/*
 	#define SET_BUS_WIDTH(ctrlr, width)		\
@@ -451,8 +569,7 @@ static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 
 	}
 
-	printk(BIOS_DEBUG, "%s: called, bus_width: %x, clock: %d -> %d\n", __func__,
-		  ctrlr->bus_width, ctrlr->request_hz, ctrlr->timing);
+
 }
 
 uint8_t buffer[10200*1024];
@@ -525,7 +642,7 @@ void init_sd(void)
 	mmc_ctrlr->set_ios = &set_ios;
 
 	mmc_ctrlr->voltages = MMC_VDD_30_31;
-	mmc_ctrlr->b_max = 1;
+	mmc_ctrlr->b_max = 1; //only support 1 block at a time
 	//mmc_ctrlr.caps = DRVR_CAP_AUTO_CMD12 | DRVR_CAP_REMOVABLE;
 	mmc_ctrlr->bus_width = 1;
 	mmc_ctrlr->f_max = 24000000;
@@ -545,6 +662,8 @@ void init_sd(void)
 	printk(BIOS_DEBUG, "pre storage\n");
 
 	storage_setup_media(&media, mmc_ctrlr);
+
+	printk(BIOS_DEBUG, "pre 25mhz\n");
 
 	mmc_ctrlr->request_hz = CLOCK_25MHZ;
 	set_ios(mmc_ctrlr);
