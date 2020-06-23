@@ -3,6 +3,7 @@
 #include <device/mmio.h>
 #include <delay.h>
 #include <console/console.h>
+#include "clock.h"
 
 static struct vtp_reg *vtpreg[2] = {
 				(struct vtp_reg *)VTP0_CTRL_ADDR,
@@ -287,55 +288,49 @@ static void set_sdram_timings(const struct emif_regs *regs, int nr)
 	writel(regs->sdram_tim3, &emif_reg[nr]->emif_sdram_tim_3);
 	writel(regs->sdram_tim3, &emif_reg[nr]->emif_sdram_tim_3_shdw);
 }
-const struct cm_wkuppll *cmwkup = (struct cm_wkuppll *)CM_WKUP;
 
 static void ddr_pll_config(unsigned int ddrpll_m)
 {
 	u32 clkmode, clksel, div_m2;
 
-	clkmode = readl(&cmwkup->clkmoddpllddr);
-	clksel = readl(&cmwkup->clkseldpllddr);
-	div_m2 = readl(&cmwkup->divm2dpllddr);
+	clkmode = read32(&am335x_cm_wkup->clkmode_dpll_ddr);
+    clksel = read32(&am335x_cm_wkup->clksel_dpll_ddr);
+	div_m2 = read32(&am335x_cm_wkup->div_m2_dpll_ddr);
 
 	/* Set the PLL to bypass Mode */
 	clkmode = (clkmode & CLK_MODE_MASK) | PLL_BYPASS_MODE;
-	writel(clkmode, &cmwkup->clkmoddpllddr);
+	write32(&am335x_cm_wkup->clkmode_dpll_ddr, clkmode);
 
 	/* Wait till bypass mode is enabled */
-	while ((readl(&cmwkup->idlestdpllddr) & ST_MN_BYPASS)
+	while ((read32(&am335x_cm_wkup->idlest_dpll_ddr) & ST_MN_BYPASS)
 				!= ST_MN_BYPASS)
 		;
 
 	clksel = clksel & (~CLK_SEL_MASK);
 	clksel = clksel | ((ddrpll_m << CLK_SEL_SHIFT) | DDRPLL_N);
-	writel(clksel, &cmwkup->clkseldpllddr);
+	write32(&am335x_cm_wkup->clksel_dpll_ddr, clksel);
 
 	div_m2 = div_m2 & CLK_DIV_SEL;
 	div_m2 = div_m2 | DDRPLL_M2;
-	writel(div_m2, &cmwkup->divm2dpllddr);
+	write32(&am335x_cm_wkup->div_m2_dpll_ddr, div_m2);
 
 	clkmode = (clkmode & CLK_MODE_MASK) | CLK_MODE_SEL;
-	writel(clkmode, &cmwkup->clkmoddpllddr);
+	write32(&am335x_cm_wkup->clkmode_dpll_ddr, clkmode);
 
 	/* Wait till dpll is locked */
-	while ((readl(&cmwkup->idlestdpllddr) & ST_DPLL_CLK) != ST_DPLL_CLK)
+	while ((read32(&am335x_cm_wkup->idlest_dpll_ddr) & ST_DPLL_CLK) != ST_DPLL_CLK)
 		;
 }
 
-const struct cm_perpll *cmper = (struct cm_perpll *)CM_PER;
 
 static void enable_emif_clocks(void)
 {
-	/* Enable the  EMIF_FW Functional clock */
-	writel(PRCM_MOD_EN, &cmper->emiffwclkctrl);
 	/* Enable EMIF0 Clock */
-	writel(PRCM_MOD_EN, &cmper->emifclkctrl);
+	write32(&am335x_cm_per->emif, CM_MODULEMODE_ENABLED);
 	/* Poll if module is functional */
-	while ((readl(&cmper->emifclkctrl)) != PRCM_MOD_EN)
+	while ((read32(&am335x_cm_per->emif)) != CM_MODULEMODE_ENABLED)
 		;
 }
-
-
 
 void config_ddr(unsigned int pll, const struct ctrl_ioregs *ioregs,
 		const struct ddr_data *data, const struct cmd_control *ctrl,
