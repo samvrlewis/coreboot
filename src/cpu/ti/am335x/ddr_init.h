@@ -2,55 +2,45 @@
 #define __CPU_TI_AM335X_DDR_INIT_H__
 #include <types.h>
 
-/* AM335X EMIF Register values */
-#define VTP_CTRL_READY		(0x1 << 5)
-#define VTP_CTRL_ENABLE		(0x1 << 6)
-#define VTP_CTRL_START_EN	(0x1)
-
-#define DDR_CKE_CTRL_NORMAL	0x1
-
-#define PHY_EN_DYN_PWRDN	(0x1 << 20)
-
-
 struct ctrl_ioregs {
-	unsigned int cm0ioctl;
-	unsigned int cm1ioctl;
-	unsigned int cm2ioctl;
-	unsigned int dt0ioctl;
-	unsigned int dt1ioctl;
-	unsigned int dt2ioctrl;
-	unsigned int dt3ioctrl;
-	unsigned int emif_sdram_config_ext;
+	uint32_t cm0ioctl;
+	uint32_t cm1ioctl;
+	uint32_t cm2ioctl;
+	uint32_t dt0ioctl;
+	uint32_t dt1ioctl;
+	uint32_t dt2ioctrl;
+	uint32_t dt3ioctrl;
+	uint32_t emif_sdram_config_ext;
 };
 
 /**
  * Encapsulates DDR DATA registers.
  */
 struct ddr_data {
-	unsigned long datardsratio0;
-	unsigned long datawdsratio0;
-	unsigned long datawiratio0;
-	unsigned long datagiratio0;
-	unsigned long datafwsratio0;
-	unsigned long datawrsratio0;
+	uint32_t datardsratio0;
+	uint32_t datawdsratio0;
+	uint32_t datawiratio0;
+	uint32_t datagiratio0;
+	uint32_t datafwsratio0;
+	uint32_t datawrsratio0;
 };
 
 /**
  * Encapsulates DDR CMD control registers.
  */
 struct cmd_control {
-	unsigned long cmd0csratio;
-	unsigned long cmd0csforce;
-	unsigned long cmd0csdelay;
-	unsigned long cmd0iclkout;
-	unsigned long cmd1csratio;
-	unsigned long cmd1csforce;
-	unsigned long cmd1csdelay;
-	unsigned long cmd1iclkout;
-	unsigned long cmd2csratio;
-	unsigned long cmd2csforce;
-	unsigned long cmd2csdelay;
-	unsigned long cmd2iclkout;
+	uint32_t cmd0csratio;
+	uint32_t cmd0csforce;
+	uint32_t cmd0csdelay;
+	uint32_t cmd0iclkout;
+	uint32_t cmd1csratio;
+	uint32_t cmd1csforce;
+	uint32_t cmd1csdelay;
+	uint32_t cmd1iclkout;
+	uint32_t cmd2csratio;
+	uint32_t cmd2csforce;
+	uint32_t cmd2csdelay;
+	uint32_t cmd2iclkout;
 };
 
 
@@ -60,275 +50,272 @@ struct cmd_control {
  * initialization and DVFS
  */
 struct emif_regs {
-	u32 freq;
-	u32 sdram_config_init;
-	u32 sdram_config;
-	u32 sdram_config2;
-	u32 ref_ctrl;
-	u32 ref_ctrl_final;
-	u32 sdram_tim1;
-	u32 sdram_tim2;
-	u32 sdram_tim3;
-	u32 ocp_config;
-	u32 read_idle_ctrl;
-	u32 zq_config;
-	u32 temp_alert_config;
-	u32 emif_ddr_phy_ctlr_1_init;
-	u32 emif_ddr_phy_ctlr_1;
-	u32 emif_ddr_ext_phy_ctrl_1;
-	u32 emif_ddr_ext_phy_ctrl_2;
-	u32 emif_ddr_ext_phy_ctrl_3;
-	u32 emif_ddr_ext_phy_ctrl_4;
-	u32 emif_ddr_ext_phy_ctrl_5;
-	u32 emif_rd_wr_lvl_rmp_win;
-	u32 emif_rd_wr_lvl_rmp_ctl;
-	u32 emif_rd_wr_lvl_ctl;
-	u32 emif_rd_wr_exec_thresh;
-	u32 emif_prio_class_serv_map;
-	u32 emif_connect_id_serv_1_map;
-	u32 emif_connect_id_serv_2_map;
-	u32 emif_cos_config;
-	u32 emif_ecc_ctrl_reg;
-	u32 emif_ecc_address_range_1;
-	u32 emif_ecc_address_range_2;
+	uint32_t freq;
+	uint32_t sdram_config_init;
+	uint32_t sdram_config;
+	uint32_t sdram_config2;
+	uint32_t ref_ctrl;
+	uint32_t ref_ctrl_final;
+	uint32_t sdram_tim1;
+	uint32_t sdram_tim2;
+	uint32_t sdram_tim3;
+	uint32_t ocp_config;
+	uint32_t read_idle_ctrl;
+	uint32_t zq_config;
+	uint32_t temp_alert_config;
+	uint32_t emif_ddr_phy_ctlr_1_init;
+	uint32_t emif_ddr_phy_ctlr_1;
+	uint32_t emif_ddr_ext_phy_ctrl_1;
+	uint32_t emif_ddr_ext_phy_ctrl_2;
+	uint32_t emif_ddr_ext_phy_ctrl_3;
+	uint32_t emif_ddr_ext_phy_ctrl_4;
+	uint32_t emif_ddr_ext_phy_ctrl_5;
+	uint32_t emif_rd_wr_lvl_rmp_win;
+	uint32_t emif_rd_wr_lvl_rmp_ctl;
+	uint32_t emif_rd_wr_lvl_ctl;
+	uint32_t emif_rd_wr_exec_thresh;
+	uint32_t emif_prio_class_serv_map;
+	uint32_t emif_connect_id_serv_1_map;
+	uint32_t emif_connect_id_serv_2_map;
+	uint32_t emif_cos_config;
+	uint32_t emif_ecc_ctrl_reg;
+	uint32_t emif_ecc_address_range_1;
+	uint32_t emif_ecc_address_range_2;
 };
 
 /* VTP Registers */
 struct vtp_reg {
-	unsigned int vtp0ctrlreg;
+	uint32_t vtp0ctrlreg;
 };
 
 
 /* Reg mapping structure */
 struct emif_reg_struct {
-	u32 emif_mod_id_rev;
-	u32 emif_status;
-	u32 emif_sdram_config;
-	u32 emif_lpddr2_nvm_config;
-	u32 emif_sdram_ref_ctrl;
-	u32 emif_sdram_ref_ctrl_shdw;
-	u32 emif_sdram_tim_1;
-	u32 emif_sdram_tim_1_shdw;
-	u32 emif_sdram_tim_2;
-	u32 emif_sdram_tim_2_shdw;
-	u32 emif_sdram_tim_3;
-	u32 emif_sdram_tim_3_shdw;
-	u32 emif_lpddr2_nvm_tim;
-	u32 emif_lpddr2_nvm_tim_shdw;
-	u32 emif_pwr_mgmt_ctrl;
-	u32 emif_pwr_mgmt_ctrl_shdw;
-	u32 emif_lpddr2_mode_reg_data;
-	u32 padding1[1];
-	u32 emif_lpddr2_mode_reg_data_es2;
-	u32 padding11[1];
-	u32 emif_lpddr2_mode_reg_cfg;
-	u32 emif_l3_config;
-	u32 emif_l3_cfg_val_1;
-	u32 emif_l3_cfg_val_2;
-	u32 emif_iodft_tlgc;
-	u32 padding2[7];
-	u32 emif_perf_cnt_1;
-	u32 emif_perf_cnt_2;
-	u32 emif_perf_cnt_cfg;
-	u32 emif_perf_cnt_sel;
-	u32 emif_perf_cnt_tim;
-	u32 padding3;
-	u32 emif_read_idlectrl;
-	u32 emif_read_idlectrl_shdw;
-	u32 padding4;
-	u32 emif_irqstatus_raw_sys;
-	u32 emif_irqstatus_raw_ll;
-	u32 emif_irqstatus_sys;
-	u32 emif_irqstatus_ll;
-	u32 emif_irqenable_set_sys;
-	u32 emif_irqenable_set_ll;
-	u32 emif_irqenable_clr_sys;
-	u32 emif_irqenable_clr_ll;
-	u32 padding5;
-	u32 emif_zq_config;
-	u32 emif_temp_alert_config;
-	u32 emif_l3_err_log;
-	u32 emif_rd_wr_lvl_rmp_win;
-	u32 emif_rd_wr_lvl_rmp_ctl;
-	u32 emif_rd_wr_lvl_ctl;
-	u32 padding6[1];
-	u32 emif_ddr_phy_ctrl_1;
-	u32 emif_ddr_phy_ctrl_1_shdw;
-	u32 emif_ddr_phy_ctrl_2;
-	u32 padding7[4];
-	u32 emif_prio_class_serv_map;
-	u32 emif_connect_id_serv_1_map;
-	u32 emif_connect_id_serv_2_map;
-	u32 padding8;
-	u32 emif_ecc_ctrl_reg;
-	u32 emif_ecc_address_range_1;
-	u32 emif_ecc_address_range_2;
-	u32 padding8_1;
-	u32 emif_rd_wr_exec_thresh;
-	u32 emif_cos_config;
-#if defined(CONFIG_DRA7XX) || defined(CONFIG_ARCH_KEYSTONE)
-	u32 padding9[2];
-	u32 emif_1b_ecc_err_cnt;
-	u32 emif_1b_ecc_err_thrush;
-	u32 emif_1b_ecc_err_dist_1;
-	u32 emif_1b_ecc_err_addr_log;
-	u32 emif_2b_ecc_err_addr_log;
-	u32 emif_ddr_phy_status[28];
-	u32 padding10[19];
-#else
-	u32 padding9[6];
-	u32 emif_ddr_phy_status[28];
-	u32 padding10[20];
-#endif
-	u32 emif_ddr_ext_phy_ctrl_1;
-	u32 emif_ddr_ext_phy_ctrl_1_shdw;
-	u32 emif_ddr_ext_phy_ctrl_2;
-	u32 emif_ddr_ext_phy_ctrl_2_shdw;
-	u32 emif_ddr_ext_phy_ctrl_3;
-	u32 emif_ddr_ext_phy_ctrl_3_shdw;
-	u32 emif_ddr_ext_phy_ctrl_4;
-	u32 emif_ddr_ext_phy_ctrl_4_shdw;
-	u32 emif_ddr_ext_phy_ctrl_5;
-	u32 emif_ddr_ext_phy_ctrl_5_shdw;
-	u32 emif_ddr_ext_phy_ctrl_6;
-	u32 emif_ddr_ext_phy_ctrl_6_shdw;
-	u32 emif_ddr_ext_phy_ctrl_7;
-	u32 emif_ddr_ext_phy_ctrl_7_shdw;
-	u32 emif_ddr_ext_phy_ctrl_8;
-	u32 emif_ddr_ext_phy_ctrl_8_shdw;
-	u32 emif_ddr_ext_phy_ctrl_9;
-	u32 emif_ddr_ext_phy_ctrl_9_shdw;
-	u32 emif_ddr_ext_phy_ctrl_10;
-	u32 emif_ddr_ext_phy_ctrl_10_shdw;
-	u32 emif_ddr_ext_phy_ctrl_11;
-	u32 emif_ddr_ext_phy_ctrl_11_shdw;
-	u32 emif_ddr_ext_phy_ctrl_12;
-	u32 emif_ddr_ext_phy_ctrl_12_shdw;
-	u32 emif_ddr_ext_phy_ctrl_13;
-	u32 emif_ddr_ext_phy_ctrl_13_shdw;
-	u32 emif_ddr_ext_phy_ctrl_14;
-	u32 emif_ddr_ext_phy_ctrl_14_shdw;
-	u32 emif_ddr_ext_phy_ctrl_15;
-	u32 emif_ddr_ext_phy_ctrl_15_shdw;
-	u32 emif_ddr_ext_phy_ctrl_16;
-	u32 emif_ddr_ext_phy_ctrl_16_shdw;
-	u32 emif_ddr_ext_phy_ctrl_17;
-	u32 emif_ddr_ext_phy_ctrl_17_shdw;
-	u32 emif_ddr_ext_phy_ctrl_18;
-	u32 emif_ddr_ext_phy_ctrl_18_shdw;
-	u32 emif_ddr_ext_phy_ctrl_19;
-	u32 emif_ddr_ext_phy_ctrl_19_shdw;
-	u32 emif_ddr_ext_phy_ctrl_20;
-	u32 emif_ddr_ext_phy_ctrl_20_shdw;
-	u32 emif_ddr_ext_phy_ctrl_21;
-	u32 emif_ddr_ext_phy_ctrl_21_shdw;
-	u32 emif_ddr_ext_phy_ctrl_22;
-	u32 emif_ddr_ext_phy_ctrl_22_shdw;
-	u32 emif_ddr_ext_phy_ctrl_23;
-	u32 emif_ddr_ext_phy_ctrl_23_shdw;
-	u32 emif_ddr_ext_phy_ctrl_24;
-	u32 emif_ddr_ext_phy_ctrl_24_shdw;
-	u32 emif_ddr_ext_phy_ctrl_25;
-	u32 emif_ddr_ext_phy_ctrl_25_shdw;
-	u32 emif_ddr_ext_phy_ctrl_26;
-	u32 emif_ddr_ext_phy_ctrl_26_shdw;
-	u32 emif_ddr_ext_phy_ctrl_27;
-	u32 emif_ddr_ext_phy_ctrl_27_shdw;
-	u32 emif_ddr_ext_phy_ctrl_28;
-	u32 emif_ddr_ext_phy_ctrl_28_shdw;
-	u32 emif_ddr_ext_phy_ctrl_29;
-	u32 emif_ddr_ext_phy_ctrl_29_shdw;
-	u32 emif_ddr_ext_phy_ctrl_30;
-	u32 emif_ddr_ext_phy_ctrl_30_shdw;
-	u32 emif_ddr_ext_phy_ctrl_31;
-	u32 emif_ddr_ext_phy_ctrl_31_shdw;
-	u32 emif_ddr_ext_phy_ctrl_32;
-	u32 emif_ddr_ext_phy_ctrl_32_shdw;
-	u32 emif_ddr_ext_phy_ctrl_33;
-	u32 emif_ddr_ext_phy_ctrl_33_shdw;
-	u32 emif_ddr_ext_phy_ctrl_34;
-	u32 emif_ddr_ext_phy_ctrl_34_shdw;
-	u32 emif_ddr_ext_phy_ctrl_35;
-	u32 emif_ddr_ext_phy_ctrl_35_shdw;
+	uint32_t emif_mod_id_rev;
+	uint32_t emif_status;
+	uint32_t emif_sdram_config;
+	uint32_t emif_lpddr2_nvm_config;
+	uint32_t emif_sdram_ref_ctrl;
+	uint32_t emif_sdram_ref_ctrl_shdw;
+	uint32_t emif_sdram_tim_1;
+	uint32_t emif_sdram_tim_1_shdw;
+	uint32_t emif_sdram_tim_2;
+	uint32_t emif_sdram_tim_2_shdw;
+	uint32_t emif_sdram_tim_3;
+	uint32_t emif_sdram_tim_3_shdw;
+	uint32_t emif_lpddr2_nvm_tim;
+	uint32_t emif_lpddr2_nvm_tim_shdw;
+	uint32_t emif_pwr_mgmt_ctrl;
+	uint32_t emif_pwr_mgmt_ctrl_shdw;
+	uint32_t emif_lpddr2_mode_reg_data;
+	uint32_t padding1[1];
+	uint32_t emif_lpddr2_mode_reg_data_es2;
+	uint32_t padding11[1];
+	uint32_t emif_lpddr2_mode_reg_cfg;
+	uint32_t emif_l3_config;
+	uint32_t emif_l3_cfg_val_1;
+	uint32_t emif_l3_cfg_val_2;
+	uint32_t emif_iodft_tlgc;
+	uint32_t padding2[7];
+	uint32_t emif_perf_cnt_1;
+	uint32_t emif_perf_cnt_2;
+	uint32_t emif_perf_cnt_cfg;
+	uint32_t emif_perf_cnt_sel;
+	uint32_t emif_perf_cnt_tim;
+	uint32_t padding3;
+	uint32_t emif_read_idlectrl;
+	uint32_t emif_read_idlectrl_shdw;
+	uint32_t padding4;
+	uint32_t emif_irqstatus_raw_sys;
+	uint32_t emif_irqstatus_raw_ll;
+	uint32_t emif_irqstatus_sys;
+	uint32_t emif_irqstatus_ll;
+	uint32_t emif_irqenable_set_sys;
+	uint32_t emif_irqenable_set_ll;
+	uint32_t emif_irqenable_clr_sys;
+	uint32_t emif_irqenable_clr_ll;
+	uint32_t padding5;
+	uint32_t emif_zq_config;
+	uint32_t emif_temp_alert_config;
+	uint32_t emif_l3_err_log;
+	uint32_t emif_rd_wr_lvl_rmp_win;
+	uint32_t emif_rd_wr_lvl_rmp_ctl;
+	uint32_t emif_rd_wr_lvl_ctl;
+	uint32_t padding6[1];
+	uint32_t emif_ddr_phy_ctrl_1;
+	uint32_t emif_ddr_phy_ctrl_1_shdw;
+	uint32_t emif_ddr_phy_ctrl_2;
+	uint32_t padding7[4];
+	uint32_t emif_prio_class_serv_map;
+	uint32_t emif_connect_id_serv_1_map;
+	uint32_t emif_connect_id_serv_2_map;
+	uint32_t padding8;
+	uint32_t emif_ecc_ctrl_reg;
+	uint32_t emif_ecc_address_range_1;
+	uint32_t emif_ecc_address_range_2;
+	uint32_t padding8_1;
+	uint32_t emif_rd_wr_exec_thresh;
+	uint32_t emif_cos_config;
+	uint32_t padding9[6];
+	uint32_t emif_ddr_phy_status[28];
+	uint32_t padding10[20];
+	uint32_t emif_ddr_ext_phy_ctrl_1;
+	uint32_t emif_ddr_ext_phy_ctrl_1_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_2;
+	uint32_t emif_ddr_ext_phy_ctrl_2_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_3;
+	uint32_t emif_ddr_ext_phy_ctrl_3_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_4;
+	uint32_t emif_ddr_ext_phy_ctrl_4_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_5;
+	uint32_t emif_ddr_ext_phy_ctrl_5_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_6;
+	uint32_t emif_ddr_ext_phy_ctrl_6_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_7;
+	uint32_t emif_ddr_ext_phy_ctrl_7_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_8;
+	uint32_t emif_ddr_ext_phy_ctrl_8_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_9;
+	uint32_t emif_ddr_ext_phy_ctrl_9_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_10;
+	uint32_t emif_ddr_ext_phy_ctrl_10_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_11;
+	uint32_t emif_ddr_ext_phy_ctrl_11_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_12;
+	uint32_t emif_ddr_ext_phy_ctrl_12_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_13;
+	uint32_t emif_ddr_ext_phy_ctrl_13_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_14;
+	uint32_t emif_ddr_ext_phy_ctrl_14_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_15;
+	uint32_t emif_ddr_ext_phy_ctrl_15_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_16;
+	uint32_t emif_ddr_ext_phy_ctrl_16_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_17;
+	uint32_t emif_ddr_ext_phy_ctrl_17_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_18;
+	uint32_t emif_ddr_ext_phy_ctrl_18_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_19;
+	uint32_t emif_ddr_ext_phy_ctrl_19_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_20;
+	uint32_t emif_ddr_ext_phy_ctrl_20_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_21;
+	uint32_t emif_ddr_ext_phy_ctrl_21_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_22;
+	uint32_t emif_ddr_ext_phy_ctrl_22_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_23;
+	uint32_t emif_ddr_ext_phy_ctrl_23_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_24;
+	uint32_t emif_ddr_ext_phy_ctrl_24_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_25;
+	uint32_t emif_ddr_ext_phy_ctrl_25_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_26;
+	uint32_t emif_ddr_ext_phy_ctrl_26_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_27;
+	uint32_t emif_ddr_ext_phy_ctrl_27_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_28;
+	uint32_t emif_ddr_ext_phy_ctrl_28_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_29;
+	uint32_t emif_ddr_ext_phy_ctrl_29_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_30;
+	uint32_t emif_ddr_ext_phy_ctrl_30_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_31;
+	uint32_t emif_ddr_ext_phy_ctrl_31_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_32;
+	uint32_t emif_ddr_ext_phy_ctrl_32_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_33;
+	uint32_t emif_ddr_ext_phy_ctrl_33_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_34;
+	uint32_t emif_ddr_ext_phy_ctrl_34_shdw;
+	uint32_t emif_ddr_ext_phy_ctrl_35;
+	uint32_t emif_ddr_ext_phy_ctrl_35_shdw;
 	union {
-		u32 emif_ddr_ext_phy_ctrl_36;
-		u32 emif_ddr_fifo_misaligned_clear_1;
+		uint32_t emif_ddr_ext_phy_ctrl_36;
+		uint32_t emif_ddr_fifo_misaligned_clear_1;
 	};
 	union {
-		u32 emif_ddr_ext_phy_ctrl_36_shdw;
-		u32 emif_ddr_fifo_misaligned_clear_2;
+		uint32_t emif_ddr_ext_phy_ctrl_36_shdw;
+		uint32_t emif_ddr_fifo_misaligned_clear_2;
 	};
 };
 
 struct ddr_cmd_regs {
-	unsigned int resv0[7];
-	unsigned int cm0csratio;	/* offset 0x01C */
-	unsigned int resv1[3];
-	unsigned int cm0iclkout;	/* offset 0x02C */
-	unsigned int resv2[8];
-	unsigned int cm1csratio;	/* offset 0x050 */
-	unsigned int resv3[3];
-	unsigned int cm1iclkout;	/* offset 0x060 */
-	unsigned int resv4[8];
-	unsigned int cm2csratio;	/* offset 0x084 */
-	unsigned int resv5[3];
-	unsigned int cm2iclkout;	/* offset 0x094 */
-	unsigned int resv6[3];
+	uint32_t resv0[7];
+	uint32_t cm0csratio;	/* offset 0x01C */
+	uint32_t resv1[3];
+	uint32_t cm0iclkout;	/* offset 0x02C */
+	uint32_t resv2[8];
+	uint32_t cm1csratio;	/* offset 0x050 */
+	uint32_t resv3[3];
+	uint32_t cm1iclkout;	/* offset 0x060 */
+	uint32_t resv4[8];
+	uint32_t cm2csratio;	/* offset 0x084 */
+	uint32_t resv5[3];
+	uint32_t cm2iclkout;	/* offset 0x094 */
+	uint32_t resv6[3];
 };
 
 struct ddr_data_regs {
-	unsigned int dt0rdsratio0;	/* offset 0x0C8 */
-	unsigned int resv1[4];
-	unsigned int dt0wdsratio0;	/* offset 0x0DC */
-	unsigned int resv2[4];
-	unsigned int dt0wiratio0;	/* offset 0x0F0 */
-	unsigned int resv3;
-	unsigned int dt0wimode0;	/* offset 0x0F8 */
-	unsigned int dt0giratio0;	/* offset 0x0FC */
-	unsigned int resv4;
-	unsigned int dt0gimode0;	/* offset 0x104 */
-	unsigned int dt0fwsratio0;	/* offset 0x108 */
-	unsigned int resv5[4];
-	unsigned int dt0dqoffset;	/* offset 0x11C */
-	unsigned int dt0wrsratio0;	/* offset 0x120 */
-	unsigned int resv6[4];
-	unsigned int dt0rdelays0;	/* offset 0x134 */
-	unsigned int dt0dldiff0;	/* offset 0x138 */
-	unsigned int resv7[12];
+	uint32_t dt0rdsratio0;	/* offset 0x0C8 */
+	uint32_t resv1[4];
+	uint32_t dt0wdsratio0;	/* offset 0x0DC */
+	uint32_t resv2[4];
+	uint32_t dt0wiratio0;	/* offset 0x0F0 */
+	uint32_t resv3;
+	uint32_t dt0wimode0;	/* offset 0x0F8 */
+	uint32_t dt0giratio0;	/* offset 0x0FC */
+	uint32_t resv4;
+	uint32_t dt0gimode0;	/* offset 0x104 */
+	uint32_t dt0fwsratio0;	/* offset 0x108 */
+	uint32_t resv5[4];
+	uint32_t dt0dqoffset;	/* offset 0x11C */
+	uint32_t dt0wrsratio0;	/* offset 0x120 */
+	uint32_t resv6[4];
+	uint32_t dt0rdelays0;	/* offset 0x134 */
+	uint32_t dt0dldiff0;	/* offset 0x138 */
+	uint32_t resv7[12];
 };
 
 /* Control Status Register */
 struct ctrl_stat {
-	unsigned int resv1[16];
-	unsigned int statusreg;		/* ofset 0x40 */
-	unsigned int resv2[51];
-	unsigned int secure_emif_sdram_config;	/* offset 0x0110 */
-	unsigned int resv3[319];
-	unsigned int dev_attr;
+	uint32_t resv1[16];
+	uint32_t statusreg;		/* ofset 0x40 */
+	uint32_t resv2[51];
+	uint32_t secure_emif_sdram_config;	/* offset 0x0110 */
+	uint32_t resv3[319];
+	uint32_t dev_attr;
 };
 
 /**
  * This structure represents the DDR io control on AM33XX devices.
  */
 struct ddr_cmdtctrl {
-	unsigned int cm0ioctl;
-	unsigned int cm1ioctl;
-	unsigned int cm2ioctl;
-	unsigned int resv2[12];
-	unsigned int dt0ioctl;
-	unsigned int dt1ioctl;
-	unsigned int dt2ioctrl;
-	unsigned int dt3ioctrl;
-	unsigned int resv3[4];
-	unsigned int emif_sdram_config_ext;
+	uint32_t cm0ioctl;
+	uint32_t cm1ioctl;
+	uint32_t cm2ioctl;
+	uint32_t resv2[12];
+	uint32_t dt0ioctl;
+	uint32_t dt1ioctl;
+	uint32_t dt2ioctrl;
+	uint32_t dt3ioctrl;
+	uint32_t resv3[4];
+	uint32_t emif_sdram_config_ext;
 };
 
 struct ddr_ctrl {
-	unsigned int ddrioctrl;
-	unsigned int resv1[325];
-	unsigned int ddrckectrl;
+	uint32_t ddrioctrl;
+	uint32_t resv1[325];
+	uint32_t ddrckectrl;
 };
 
+/* AM335X EMIF Register values */
+#define VTP_CTRL_READY		(0x1 << 5)
+#define VTP_CTRL_ENABLE		(0x1 << 6)
+#define VTP_CTRL_START_EN	(0x1)
+
+#define DDR_CKE_CTRL_NORMAL	0x1
+
+#define PHY_EN_DYN_PWRDN	(0x1 << 20)
 
 /* VTP Base address */
 #define VTP0_CTRL_ADDR			0x44E10E0C
@@ -368,10 +355,6 @@ struct ddr_ctrl {
 #define EMIF_SDRAM_TYPE_DDR3	0x3
 #define EMIF_SDRAM_TYPE_LPDDR2	0x4
 
-void config_ddr(unsigned int pll, const struct ctrl_ioregs *ioregs,
-		const struct ddr_data *data, const struct cmd_control *ctrl,
-		const struct emif_regs *regs, int nr);
-
 #define PLL_BYPASS_MODE		0x4
 #define ST_MN_BYPASS		0x00000100
 #define ST_DPLL_CLK		0x00000001
@@ -391,5 +374,9 @@ void config_ddr(unsigned int pll, const struct ctrl_ioregs *ioregs,
 #define DDRPLL_M	266
 #define DDRPLL_N	(OSC-1)
 #define DDRPLL_M2	1
+
+void config_ddr(uint32_t pll, const struct ctrl_ioregs *ioregs,
+		const struct ddr_data *data, const struct cmd_control *ctrl,
+		const struct emif_regs *regs, int nr);
 
 #endif
