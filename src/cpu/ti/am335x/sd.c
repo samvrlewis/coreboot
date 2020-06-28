@@ -47,7 +47,7 @@ static inline void set32_with_mask(void *addr, uint32_t mask, uint32_t value)
 	write32(addr, val);
 }
 
-static int am335x_mmc_init_sam(struct am335x_mmc *mmc)
+static int am335x_mmc_init(struct am335x_mmc *mmc)
 {
 	// Follows the initialisiation guide from the AM335X technical reference manual
 	write32(&mmc->sysconfig, read32(&mmc->sysconfig) | MMCHS_SD_SYSCONFIG_SOFTRESET);
@@ -66,6 +66,7 @@ static int am335x_mmc_init_sam(struct am335x_mmc *mmc)
 	while(!(read32(&mmc->hctl) & MMCHS_SD_HCTL_SDBP)) { printk(BIOS_DEBUG, "waiting on %d\n", __LINE__); }
 
 	// set initial clock speed
+	// the input clock is at 96MHz so this puts it at 400 KHz
 	write32(&mmc->sysctl, read32(&mmc->sysctl) | 240 << 6);
 
 	// enable internal internal clock and clock to card
@@ -93,278 +94,6 @@ static int am335x_mmc_init_sam(struct am335x_mmc *mmc)
 
 	// finish initialisation
 	write32(&mmc->con, read32(&mmc->con) & ~MMCHS_SD_CON_INIT);
-
-	return 0;
-}
-
-static int am335x_mmc_init(struct am335x_mmc *mmc)
-{
-    int counter=0;
-	/*
-	 * Soft reset of the controller
-	 */
-	/* Write 1 to sysconfig[0] to trigger a reset*/
-    set32_with_mask(&mmc->sysconfig, MMCHS_SD_SYSCONFIG_SOFTRESET, MMCHS_SD_SYSCONFIG_SOFTRESET);
-
-	/* read sysstatus to know it's done */
-	
-    
-
-	// The bootROM may have used the controller, do a soft reset all to get the controller
-	// to a known state
-    set32_with_mask(&mmc->sysctl, MMCHS_SD_SYSCTL_SRA, MMCHS_SD_SYSCTL_SRA);
-
-	while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL)
-			& MMCHS_SD_SYSCTL_SRA)) 
-        ;
-    
-    /*
-	 * Set SD default capabilities
-	 */
-    write32(&mmc->hctl, MMCHS_SD_HCTL_SDVS_VS30 | MMCHS_SD_HCTL_SDBP_OFF | MMCHS_SD_HCTL_DTW_1BIT);
-	set32_with_mask(&mmc->capa, MMCHS_SD_CAPA_VS_MASK, MMCHS_SD_CAPA_VS18 | MMCHS_SD_CAPA_VS30);
-
-
-
-	/*
-	 * MMC host and bus configuration
-	 */
-
-	/* Configure data and command transfer (1 bit mode)*/
-	set32(MMCHS0_REG_BASE + MMCHS_SD_CON, MMCHS_SD_CON_DW8,
-			MMCHS_SD_CON_DW8_1BIT);
-
-
-	/* Configure card voltage  */
-	set32(MMCHS0_REG_BASE + MMCHS_SD_HCTL, MMCHS_SD_HCTL_SDVS,
-			MMCHS_SD_HCTL_SDVS_VS30 /* Configure 3.0 volt */
-			);
-
-	/* Power on the host controller and wait for the  MMCHS_SD_HCTL_SDBP_POWER_ON to be set */
-	set32(MMCHS0_REG_BASE + MMCHS_SD_HCTL, MMCHS_SD_HCTL_SDBP,
-			MMCHS_SD_HCTL_SDBP_ON);
-
-	while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_HCTL) & MMCHS_SD_HCTL_SDBP)
-			!= MMCHS_SD_HCTL_SDBP_ON) {
-		counter++;
-	}
-
-	/* Enable internal clock and clock to the card*/
-	set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, MMCHS_SD_SYSCTL_ICE,
-			MMCHS_SD_SYSCTL_ICE_EN);
-
-	//@TODO Fix external clock enable , this one is very slow
-	set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, MMCHS_SD_SYSCTL_CLKD,
-			(240 << 6));
-	set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, MMCHS_SD_SYSCTL_CEN,
-			MMCHS_SD_SYSCTL_CEN_EN);
-	while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL) & MMCHS_SD_SYSCTL_ICS)
-			!= MMCHS_SD_SYSCTL_ICS_STABLE)
-		;
-
-	/*
-	 * See spruh73e page 3576  Card Detection, Identification, and Selection
-	 */
-
-	/* enable command interrupt */
-	set32(MMCHS0_REG_BASE + MMCHS_SD_IE, MMCHS_SD_IE_CC_ENABLE,
-			MMCHS_SD_IE_CC_ENABLE_ENABLE);
-	/* enable transfer complete interrupt */
-	set32(MMCHS0_REG_BASE + MMCHS_SD_IE, MMCHS_SD_IE_TC_ENABLE,
-			MMCHS_SD_IE_TC_ENABLE_ENABLE);
-
-	/* enable error interrupts */
-	/* NOTE: We are currently skipping the BADA interrupt it does get raised for unknown reasons */
-	set32(MMCHS0_REG_BASE + MMCHS_SD_IE, MMCHS_SD_IE_ERROR_MASK, 0x0fffffffu);
-	//set32(MMCHS0_REG_BASE + MMCHS_SD_IE,MMCHS_SD_IE_ERROR_MASK, 0xffffffffu);
-
-	/* clean the error interrupts */
-	set32(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_STAT_ERROR_MASK,
-			0xffffffffu); // clear errors
-	//set32(MMCHS0_REG_BASE + MMCHS_SD_STAT,MMCHS_SD_STAT_ERROR_MASK, 0xffffffffu);// clear errors
-
-	/* send a init signal to the host controller. This does not actually
-	 * send a command to a card manner
-	 */
-	set32(MMCHS0_REG_BASE + MMCHS_SD_CON, MMCHS_SD_CON_INIT,
-			MMCHS_SD_CON_INIT_INIT);
-	write32x(MMCHS0_REG_BASE + MMCHS_SD_CMD, 0x00); /* command 0 , type other commands , not response etc) */
-
-	while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT) & MMCHS_SD_STAT_CC)
-			!= MMCHS_SD_STAT_CC_RAISED) {
-		if (read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT) & 0x8000) {
-			printk(BIOS_DEBUG,"%s, error stat  %x\n", __FUNCTION__,
-					read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT));
-			return 1;
-		}
-		counter++;
-	}
-
-	/* clear the cc interrupt status */
-	set32(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_CC_ENABLE,
-			MMCHS_SD_IE_CC_ENABLE_ENABLE);
-
-	/*
-	 * Set Set SD_CON[1] INIT bit to 0x0 to end the initialization sequence
-	 */
-	set32(MMCHS0_REG_BASE + MMCHS_SD_CON, MMCHS_SD_CON_INIT,
-			MMCHS_SD_CON_INIT_NOINIT);
-	return 0;
-}
-
-
-static int send_cmd_base(uint32_t command, uint32_t arg, uint32_t resp_type)
-{
-	int count= 0;
-
-	//uart_putf("send cmdbase %d %d %d\n", command, arg, resp_type);
-	/* Read current interrupt status and fail it an interrupt is already asserted */
-	if ((read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT) & 0xffffu)) {
-		printk(BIOS_DEBUG,"%s, interrupt already raised stat  %08x\n", __FUNCTION__,
-				read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT));
-		return 1;
-	}
-
-	/* Set arguments */
-	write32x(MMCHS0_REG_BASE + MMCHS_SD_ARG, arg);
-	/* Set command */
-	set32(MMCHS0_REG_BASE + MMCHS_SD_CMD, MMCHS_SD_CMD_MASK, command);
-
-	/* Wait for completion */
-	while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT) & 0xffffu) == 0x0) {
-		count++;
-	}
-
-	if (read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT) & 0x8000) {
-		printk(BIOS_DEBUG,"%s, error stat  %08x\n", __FUNCTION__,
-				read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT));
-		set32(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_STAT_ERROR_MASK,
-				0xffffffffu);	// clear errors
-		// We currently only support 2.0, not responding to
-		return 1;
-	}
-
-	if (resp_type == CARD_RSP_R1b) {
-		/*
-		 * Command with busy repsonse *CAN* also set the TC bit if they exit busy
-		 */
-		while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT)
-				& MMCHS_SD_IE_TC_ENABLE_ENABLE) == 0) {
-			count++;
-		}
-		write32x(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_TC_ENABLE_CLEAR);
-	}
-
-	/* clear the cc status */
-	write32x(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_CC_ENABLE_CLEAR);
-	return 0;
-}
-
-
-
-static int send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, struct mmc_data *data)
-{
-
-    uint32_t count;
-	uint32_t value;
-	//uart_putf("send cmd %d %d %d\n", cmd->cmdidx, cmd->cmdarg, cmd->resp_type);
-
-	int ret = 0;
-
-	if (cmd->cmdidx == 17)
-	{
-		set32(MMCHS0_REG_BASE + MMCHS_SD_IE, MMCHS_SD_IE_BRR_ENABLE,
-			MMCHS_SD_IE_BRR_ENABLE_ENABLE);
-
-		set32(MMCHS0_REG_BASE + MMCHS_SD_BLK, MMCHS_SD_BLK_BLEN, 512);
-
-		if (send_cmd_base(MMCHS_SD_CMD_CMD17 /* read single block */
-		| MMCHS_SD_CMD_DP_DATA /* Command with data transfer */
-		| MMCHS_SD_CMD_RSP_TYPE_48B /* type (R1) */
-		| MMCHS_SD_CMD_MSBS_SINGLE /* single block */
-		| MMCHS_SD_CMD_DDIR_READ /* read data from card */
-		, cmd->cmdarg, cmd->resp_type)) {
-			return 1;
-		}
-
-		while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT)
-			& MMCHS_SD_IE_BRR_ENABLE_ENABLE) == 0) {
-			count++;
-		}
-
-		if (!(read32x(MMCHS0_REG_BASE + MMCHS_SD_PSTATE) & MMCHS_SD_PSTATE_BRE_EN)) {
-			return 1; /* We are not allowed to read data from the data buffer */
-		}
-
-		for (count= 0; count < 512; count+= 4) {
-			value= read32x(MMCHS0_REG_BASE + MMCHS_SD_DATA);
-			data->dest[count]= *((char*) &value);
-			data->dest[count + 1]= *((char*) &value + 1);
-			data->dest[count + 2]= *((char*) &value + 2);
-			data->dest[count + 3]= *((char*) &value + 3);
-		}
-
-		while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_STAT)
-			& MMCHS_SD_IE_TC_ENABLE_ENABLE) == 0) {
-			count++;
-		}
-		write32x(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_TC_ENABLE_CLEAR);
-
-		/* clear and disable the bbr interrupt */
-		write32x(MMCHS0_REG_BASE + MMCHS_SD_STAT, MMCHS_SD_IE_BRR_ENABLE_CLEAR);
-		set32(MMCHS0_REG_BASE + MMCHS_SD_IE, MMCHS_SD_IE_BRR_ENABLE,
-				MMCHS_SD_IE_BRR_ENABLE_DISABLE);
-		return 0;
-
-	} else {
-		uint32_t command = cmd->cmdidx << 24;
-
-		switch (cmd->resp_type) {
-			case CARD_RSP_R1b:
-				command |= MMCHS_SD_CMD_RSP_TYPE_48B_BUSY;
-				break;
-			case CARD_RSP_R1:
-			case CARD_RSP_R3:
-				command |= MMCHS_SD_CMD_RSP_TYPE_48B;
-				break;
-			case CARD_RSP_R2:
-				command |= MMCHS_SD_CMD_RSP_TYPE_136B;
-				break;
-			case CARD_RSP_NONE:
-				command |= MMCHS_SD_CMD_RSP_TYPE_NO_RESP;
-				break;
-			default:
-				return 1;
-		}
-		ret = send_cmd_base(command, cmd->cmdarg, cmd->resp_type);
-
-		if (ret)
-		{
-			return ret;
-		}
-	}
-	
-
-	/* copy response into cmd->resp	 */
-	switch (cmd->resp_type) {
-		case CARD_RSP_R1:
-		case CARD_RSP_R1b:
-		case CARD_RSP_R3:
-			cmd->response[0] = read32x(MMCHS0_REG_BASE + MMCHS_SD_RSP10);
-			break;
-		case CARD_RSP_R2:
-			cmd->response[3] = read32x(MMCHS0_REG_BASE + MMCHS_SD_RSP10);
-			cmd->response[2] = read32x(MMCHS0_REG_BASE + MMCHS_SD_RSP32);
-			cmd->response[1] = read32x(MMCHS0_REG_BASE + MMCHS_SD_RSP54);
-			cmd->response[0] = read32x(MMCHS0_REG_BASE + MMCHS_SD_RSP76);
-			break;
-		case CARD_RSP_NONE:
-			break;
-		default:
-			printk(BIOS_DEBUG, "Unknown case\n");
-			return 1;
-	}
-
 
 	return 0;
 }
@@ -473,13 +202,12 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 			return 1;
 		}
 
+		uint32_t* dest32 = (uint32_t*)data->dest;
+
 		for (int count = 0; count < data->blocksize; count+=4)
 		{
-			uint32_t value= read32(&reg->data);
-			data->dest[count]= *((char*) &value);
-			data->dest[count + 1]= *((char*) &value + 1);
-			data->dest[count + 2]= *((char*) &value + 2);
-			data->dest[count + 3]= *((char*) &value + 3); 
+			*dest32 = read32(&reg->data);
+			dest32++; 
 		}
 
 		write32(&reg->stat, MMCHS_SD_IE_TC_ENABLE_CLEAR);
@@ -487,89 +215,56 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 		write32(&mmc->reg->ie, MMCHS_SD_IE_BRR_ENABLE_DISABLE);
 	}
 
-	if (0)
-	{
-		send_cmd(NULL, NULL, NULL);
-	}
-
 	return 0;
 }
 
+#define SD_CLK_FREQ 96000000
+
 static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 {
-	printk(BIOS_DEBUG, "Set ios\n");
+	printk(BIOS_DEBUG, "Set ios %d %d %d\n", ctrlr->bus_width, ctrlr->timing, ctrlr->request_hz);
 
-	/*
-	#define SET_BUS_WIDTH(ctrlr, width)		\
-	do {					\
-		ctrlr->bus_width = width;	\
-		ctrlr->set_ios(ctrlr);		\
-	} while (0)
+	struct am335x_mmc_host *mmc;
+	struct am335x_mmc *reg;
 
-	#define SET_CLOCK(ctrlr, clock_hz)		\
-		do {					\
-			ctrlr->request_hz = clock_hz;	\
-			ctrlr->set_ios(ctrlr);		\
-		} while (0)
+	mmc = container_of(ctrlr, struct am335x_mmc_host, sd_mmc_ctrlr);
+	reg = mmc->reg;
 
-	#define SET_TIMING(ctrlr, timing_value)		\
-			ctrlr->timing = timing_value;	\
-			ctrlr->set_ios(ctrlr);		\
-	*/
-
-	// need to set the bus width, timing and clock
-
-	/*
-	width is 1,4,8
-
-	#define CLOCK_KHZ		1000
-#define CLOCK_MHZ		(1000 * CLOCK_KHZ)
-#define CLOCK_20MHZ		(20 * CLOCK_MHZ)
-#define CLOCK_25MHZ		(25 * CLOCK_MHZ)
-#define CLOCK_26MHZ		(26 * CLOCK_MHZ)
-#define CLOCK_50MHZ		(50 * CLOCK_MHZ)
-#define CLOCK_52MHZ		(52 * CLOCK_MHZ)
-#define CLOCK_200MHZ		(200 * CLOCK_MHZ)
-
-
-	#define BUS_TIMING_LEGACY	0
-#define BUS_TIMING_MMC_HS	1
-#define BUS_TIMING_SD_HS	2
-#define BUS_TIMING_UHS_SDR12	3
-#define BUS_TIMING_UHS_SDR25	4
-#define BUS_TIMING_UHS_SDR50	5
-#define BUS_TIMING_UHS_SDR104	6
-#define BUS_TIMING_UHS_DDR50	7
-#define BUS_TIMING_MMC_DDR52	8
-#define BUS_TIMING_MMC_HS200	9
-#define BUS_TIMING_MMC_HS400	10
-#define BUS_TIMING_MMC_HS400ES	11
-*/
-	if (ctrlr->request_hz ==CLOCK_25MHZ)
+	if (ctrlr->request_hz != ctrlr->bus_hz)
 	{
-		printk(BIOS_DEBUG, "setting 25mhz\n");
-		set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, MMCHS_SD_SYSCTL_CEN,
-			~MMCHS_SD_SYSCTL_CEN_EN);
+		uint32_t requested_hz = ctrlr->request_hz;
 
-		set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, (0x1 << 0) | (0xF << 16), (0x00 << 0) | (0xE << 16));
-		set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, (0x1 << 0) | (0x3ff << 6), (0x01 << 0) | (4 << 6));
+		/* Compute the divisor for the new clock frequency */
+		requested_hz = MIN(requested_hz, ctrlr->f_min);
+		requested_hz = MAX(requested_hz, ctrlr->f_max);
 
-		while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL) & MMCHS_SD_SYSCTL_ICS)
-			!= MMCHS_SD_SYSCTL_ICS_STABLE)
-		;
+		uint32_t divisor = SD_CLK_FREQ / requested_hz;
+		uint32_t actual = SD_CLK_FREQ*divisor;
 
-		set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, MMCHS_SD_SYSCTL_CEN,
-			MMCHS_SD_SYSCTL_CEN_EN);
+		if (actual != ctrlr->bus_hz)
+		{
+			clrbits32(&reg->sysctl, MMCHS_SD_SYSCTL_CEN_EN | MMCHS_SD_SYSCTL_ICE);
 
-		while ((read32x(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL) & MMCHS_SD_SYSCTL_ICS)
-			!= MMCHS_SD_SYSCTL_ICS_STABLE)
-		;
-		
-		ctrlr->bus_hz = 24000000;
+			//write32(&reg->sysctl, read32(&reg->sysctl) | (divisor << 6));
 
+			//set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, (0x1 << 0) | (0xF << 16), (0x00 << 0) | (0xE << 16));
+			set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, (0x3ff << 6), (divisor << 6));
+
+			setbits32(&reg->sysctl, MMCHS_SD_SYSCTL_ICE);
+
+			while (!(read32(&reg->sysctl) & MMCHS_SD_SYSCTL_ICS))
+				;
+
+			setbits32(&reg->sysctl, MMCHS_SD_SYSCTL_CEN);
+
+			while (!(read32(&reg->sysctl) & MMCHS_SD_SYSCTL_ICS))
+				;
+			
+			ctrlr->bus_hz = SD_CLK_FREQ/divisor;
+
+			printk(BIOS_DEBUG, "Set SD card freq to %d", ctrlr->bus_hz);
+		}
 	}
-
-
 }
 
 uint8_t buffer[10200*1024];
@@ -627,14 +322,7 @@ void init_sd(void)
 
 	struct sd_mmc_ctrlr *mmc_ctrlr = &mmc_host.sd_mmc_ctrlr;
 
-
-	if (0)
-	{
-		am335x_mmc_init(mmc);
-	} else {
-
-		am335x_mmc_init_sam(mmc);
-	}
+	am335x_mmc_init(mmc);
 
 	memset(mmc_ctrlr, 0, sizeof(mmc_ctrlr));
 	memset(&buffer, 0, sizeof(buffer));
@@ -645,10 +333,10 @@ void init_sd(void)
 	mmc_ctrlr->b_max = 1; //only support 1 block at a time
 	//mmc_ctrlr.caps = DRVR_CAP_AUTO_CMD12 | DRVR_CAP_REMOVABLE;
 	mmc_ctrlr->bus_width = 1;
-	mmc_ctrlr->f_max = 24000000;
-	mmc_ctrlr->f_min = 1;
+	mmc_ctrlr->f_max = 48000000;
+	mmc_ctrlr->f_min = 400000;
 
-	mmc_ctrlr->bus_hz = 1;
+	mmc_ctrlr->bus_hz = 400000;
 
 	//mmc_ctrlr.timing = BUS_TIMING_SD_HS;
 	/*mmc_ctrlr.udelay_wait_after_cmd = 10000;
@@ -665,8 +353,8 @@ void init_sd(void)
 
 	printk(BIOS_DEBUG, "pre 25mhz\n");
 
-	mmc_ctrlr->request_hz = CLOCK_25MHZ;
-	set_ios(mmc_ctrlr);
+//	mmc_ctrlr->request_hz = CLOCK_25MHZ;
+//	set_ios(mmc_ctrlr);
 
 	printk(BIOS_DEBUG, "post storage\n");
 
