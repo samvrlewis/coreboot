@@ -25,6 +25,7 @@ void init_timer(void)
 {
 	write32(&am335x_cm_dpll->clksel_timer2_clk, CLKSEL_M_OSC);
 
-	// Start the dmtimer in autoreload mode
+	// Start the dmtimer in autoreload mode without any prescalers
+	// With M_OSC at 24MHz, this gives a few minutes before the timer overflows
 	write32(&dmtimer_2->tclr, TCLR_ST | TCLR_AR);
 }

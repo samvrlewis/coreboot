@@ -6,7 +6,7 @@
 
 #include <stdint.h>
 
-#define M_OSC_MHZ (25)
+#define M_OSC_MHZ (24)
 
 struct am335x_dmtimer {
     uint32_t tidr;
