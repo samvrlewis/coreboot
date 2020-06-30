@@ -5,47 +5,8 @@
 #include <commonlib/storage/sd_mmc.h>
 #include <commonlib/sd_mmc_ctrlr.h>
 #include <device/mmio.h>
-
+#include <delay.h>
 #include "sd.h"
-
-#define uart_putf(X...) printk(BIOS_INFO, "romstage: " X)
-
-/**
- * Write a uint32_t value to a memory address
- */
-static inline void write32x(uint32_t address, uint32_t value)
-{
-	REG(address)= value;
-}
-
-/**
- * Read an uint32_t from a memory address
- */
-static inline uint32_t read32x(uint32_t address)
-{
-	return REG(address);
-}
-
-/**
- * Set a 32 bits value depending on a mask
- */
-static inline void set32(uint32_t address, uint32_t mask, uint32_t value)
-{
-	uint32_t val;
-	val= read32x(address);
-	val&= ~(mask); /* clear the bits */
-	val|= (value & mask); /* apply the value using the mask */
-	write32x(address, val);
-}
-
-static inline void set32_with_mask(void *addr, uint32_t mask, uint32_t value)
-{
-    uint32_t val;
-	val= read32(addr);
-	val&= ~(mask); /* clear the bits */
-	val|= (value & mask); /* apply the value using the mask */
-	write32(addr, val);
-}
 
 static int am335x_mmc_init(struct am335x_mmc *mmc)
 {
@@ -61,7 +22,7 @@ static int am335x_mmc_init(struct am335x_mmc *mmc)
 	write32(&mmc->hctl, MMCHS_SD_HCTL_SDVS_VS30 | MMCHS_SD_HCTL_DTW_1BIT);
 
 	// enable sd bus power
-	write32(&mmc->hctl, read32(&mmc->hctl) | MMCHS_SD_HCTL_SDBP_ON);
+	write32(&mmc->hctl, read32(&mmc->hctl) | MMCHS_SD_HCTL_SDBP);
 
 	while(!(read32(&mmc->hctl) & MMCHS_SD_HCTL_SDBP)) { printk(BIOS_DEBUG, "waiting on %d\n", __LINE__); }
 
@@ -103,32 +64,28 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 	struct am335x_mmc_host *mmc;
 	struct am335x_mmc *reg;
 
-	//printk(BIOS_DEBUG, "Sending command %d\n", cmd->cmdidx);
-
-
 	mmc = container_of(ctrlr, struct am335x_mmc_host, sd_mmc_ctrlr);
 	reg = mmc->reg;
 
-
-		if (read32(&reg->stat) & 0xffffu)
+	if (read32(&reg->stat) & 0xffffffffu)
 	{
-		printk(BIOS_DEBUG, "interrupt already raised\n");
+		printk(BIOS_WARNING, "SD: Interrupt already raised\n");
 		return 1;
 	}
 
-
 	uint32_t transfer_type = 0;
 
-	if (data != NULL && data->flags & DATA_FLAG_READ) {
-		write32(&mmc->reg->ie, MMCHS_SD_IE_BRR_ENABLE_ENABLE);
-
-		//printk(BIOS_DEBUG, "block size %d\n", data->blocksize);
-		write32(&mmc->reg->blk, data->blocksize);
-		transfer_type |= MMCHS_SD_CMD_DP_DATA | MMCHS_SD_CMD_DDIR_READ;
-	}
-
-	if (cmd->resp_type & CARD_RSP_CRC) {
-		//transfer_type |= MMCHS_SD_CMD_CCCE;
+	if (data) {
+		if (data->flags & DATA_FLAG_READ) {
+			write32(&mmc->reg->ie, MMCHS_SD_IE_BRR_ENABLE_ENABLE);
+			write32(&mmc->reg->blk, data->blocksize);
+			transfer_type |= MMCHS_SD_CMD_DP_DATA | MMCHS_SD_CMD_DDIR_READ;
+		}
+		
+		if (data->flags & DATA_FLAG_WRITE) {
+			printk(BIOS_ERR, "SD: Writes currently not supported\n");
+			return 1;
+		}
 	}
 
 	switch (cmd->resp_type) {
@@ -146,32 +103,31 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 			transfer_type |= MMCHS_SD_CMD_RSP_TYPE_NO_RESP;
 			break;
 		default:
+			printk(BIOS_ERR, "SD: Unknown response type\n");
 			return 1;
 	}
 
 	if (cmd->cmdidx == MMC_CMD_SET_BLOCKLEN) {
-		write32(&mmc->reg->blk, cmd->cmdarg);
+		//write32(&mmc->reg->blk, cmd->cmdarg);
 		return 0;
 	}
 
-	uint32_t command = (cmd->cmdidx << 24) | transfer_type;
-
 	write32(&reg->arg, cmd->cmdarg);
-	write32(&reg->cmd, command);
+	write32(&reg->cmd, MMCHS_SD_CMD_INDX_CMD(cmd->cmdidx) | transfer_type);
 
-	while ((read32(&reg->stat) & 0xffffu) == 0) ; //{ printk(BIOS_DEBUG, "waiting on %d\n", __LINE__); }
+	// Wait for any interrupt
+	while (!read32(&reg->stat))
+		;
 
-	uint32_t stat = read32(&reg->stat);
-
-	if (stat & 0x8000) {
-		printk(BIOS_DEBUG, "Error while reading %08x\n", stat);
-		write32(&reg->stat, 0xffffffffu);
+	// Check to ensure that there wasn't any errors
+	if (read32(&reg->stat) & MMCHS_SD_STAT_ERRI) {
+		printk(BIOS_DEBUG, "Error while reading %08x\n", read32(&reg->stat));
+		write32(&reg->stat, MMCHS_SD_STAT_ERROR_MASK);
 		return 1;
 	}
 		
-
 	if (cmd->resp_type == CARD_RSP_R1b) {
-		while (!(read32(&reg->stat) & MMCHS_SD_IE_TC_ENABLE_ENABLE)) { printk(BIOS_DEBUG, "waiting on %d\n", __LINE__); }
+		while (!(read32(&reg->stat) & MMCHS_SD_IE_TC_ENABLE_ENABLE)) ;
 		write32(&reg->stat, MMCHS_SD_IE_TC_ENABLE_ENABLE);
 	}
 
@@ -195,7 +151,7 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 	}
 
 	if (data != NULL && data->flags & DATA_FLAG_READ) {
-		while(!(read32(&reg->stat) & MMCHS_SD_IE_BRR_ENABLE_ENABLE));
+		while(!(read32(&reg->stat) & MMCHS_SD_IE_BRR_ENABLE_ENABLE)) { printk(BIOS_ERR, "SD: Waiting MMCHS_SD_IE_BRR_ENABLE_ENABLE\n"); }
 
 		if (!(read32(&reg->pstate) & MMCHS_SD_PSTATE_BRE_EN)) {
 			printk(BIOS_DEBUG, "Can't read from data buffer\n");
@@ -222,8 +178,6 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 
 static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 {
-	printk(BIOS_DEBUG, "Set ios %d %d %d\n", ctrlr->bus_width, ctrlr->timing, ctrlr->request_hz);
-
 	struct am335x_mmc_host *mmc;
 	struct am335x_mmc *reg;
 
@@ -243,25 +197,20 @@ static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 
 		if (actual != ctrlr->bus_hz)
 		{
-			clrbits32(&reg->sysctl, MMCHS_SD_SYSCTL_CEN_EN | MMCHS_SD_SYSCTL_ICE);
+			clrbits32(&reg->sysctl, MMCHS_SD_SYSCTL_CEN);
+			
+			uint32_t new_sysctl = read32(&reg->sysctl);
+			new_sysctl &= ~(0x3ff << 6);
+			new_sysctl |= (divisor << 6);
 
-			//write32(&reg->sysctl, read32(&reg->sysctl) | (divisor << 6));
-
-			//set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, (0x1 << 0) | (0xF << 16), (0x00 << 0) | (0xE << 16));
-			set32(MMCHS0_REG_BASE + MMCHS_SD_SYSCTL, (0x3ff << 6), (divisor << 6));
-
-			setbits32(&reg->sysctl, MMCHS_SD_SYSCTL_ICE);
+			write32(&reg->sysctl, new_sysctl);
 
 			while (!(read32(&reg->sysctl) & MMCHS_SD_SYSCTL_ICS))
 				;
 
 			setbits32(&reg->sysctl, MMCHS_SD_SYSCTL_CEN);
 
-			while (!(read32(&reg->sysctl) & MMCHS_SD_SYSCTL_ICS))
-				;
-			
 			ctrlr->bus_hz = SD_CLK_FREQ/divisor;
-
 			printk(BIOS_DEBUG, "Set SD card freq to %d", ctrlr->bus_hz);
 		}
 	}
@@ -313,6 +262,25 @@ const struct region_device *boot_device_ro(void)
 	return &sd_mdev.rdev;
 }
 
+static void boot_from_sd(void)
+{
+	uint64_t blocks_read = storage_block_read(&media, 0, 19593, (void*)(0x82000000));
+	blocks_read = storage_block_read(&media, 19593, 185, (void*)(0x88000000));
+
+	uint8_t* fdt = (uint8_t*)(0x88000000);
+	for (int i=0; i < 20; i++)
+	{
+			printk(BIOS_DEBUG, "%x\n", fdt[i]);
+	}
+
+	dcache_mmu_disable();
+	
+	printk(BIOS_DEBUG, "turned it off\n");
+	void (*kernel_entry)(void *, void*, void*);
+	kernel_entry = (void*)(0x82000000);
+	kernel_entry(0, (void*)~0, (void*)(0x88000000));
+}
+
 void init_sd(void)
 {
 	
@@ -331,62 +299,32 @@ void init_sd(void)
 
 	mmc_ctrlr->voltages = MMC_VDD_30_31;
 	mmc_ctrlr->b_max = 1; //only support 1 block at a time
-	//mmc_ctrlr.caps = DRVR_CAP_AUTO_CMD12 | DRVR_CAP_REMOVABLE;
 	mmc_ctrlr->bus_width = 1;
 	mmc_ctrlr->f_max = 48000000;
-	mmc_ctrlr->f_min = 400000;
-
+	mmc_ctrlr->f_min =  400000;
 	mmc_ctrlr->bus_hz = 400000;
-
-	//mmc_ctrlr.timing = BUS_TIMING_SD_HS;
-	/*mmc_ctrlr.udelay_wait_after_cmd = 10000;
-	mmc_ctrlr.mdelay_after_cmd0 = 100;
-	mmc_ctrlr.mdelay_before_cmd0 = 100;*/
-
-	
 
 	media.ctrlr = mmc_ctrlr;
 
 	printk(BIOS_DEBUG, "pre storage\n");
-
 	storage_setup_media(&media, mmc_ctrlr);
-
-	printk(BIOS_DEBUG, "pre 25mhz\n");
-
-//	mmc_ctrlr->request_hz = CLOCK_25MHZ;
-//	set_ios(mmc_ctrlr);
-
 	printk(BIOS_DEBUG, "post storage\n");
-
 	storage_display_setup(&media);
-
 	printk(BIOS_DEBUG, "reading blocks\n");
+		
+	if (1)
+	{
+		boot_from_sd();
+	}
 
 
-	uint64_t blocks_read = storage_block_read(&media, 0, 19593, (void*)(0x82000000));
-	blocks_read = storage_block_read(&media, 19593, 185, (void*)(0x88000000));
-
-uint8_t* fdt = (uint8_t*)(0x88000000);
-			for (int i=0; i < 20; i++)
-			{
-					printk(BIOS_DEBUG, "%x\n", fdt[i]);
-			}
-
-	dcache_mmu_disable();
-	
-
-	printk(BIOS_DEBUG, "turned it off\n");
-	void (*kernel_entry)(void *, void*, void*);
-	kernel_entry = (void*)(0x82000000);
-	kernel_entry(0, (void*)~0, (void*)(0x88000000));
-
-	return;
-
-	blocks_read = storage_block_read(&media, 0, (10200*1024)/512, &buffer);
+	uint64_t blocks_read = storage_block_read(&media, 0, (10200*1024)/512, &buffer);
 
 	printk(BIOS_DEBUG, "read %llu blocks\n", blocks_read);
 	mmap_helper_device_init(&sd_mdev,
 			_cbfs_cache, REGION_SIZE(cbfs_cache));
+
+
 
 	return;
 
