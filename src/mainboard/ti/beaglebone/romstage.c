@@ -84,7 +84,7 @@ void main(void)
 
 	printk(BIOS_INFO, "RAM INIT Done\n");
 
- 	if (1) {
+ 	if (0) {
 	    #include <stdint.h>
 	    uint32_t	*p = (uint32_t*)0x80000000;
 	  	uint32_t	*endp = (uint32_t*)(0x80000000+512*1024*1024);

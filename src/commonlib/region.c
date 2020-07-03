@@ -306,10 +306,15 @@ void *mmap_helper_rdev_mmap(const struct region_device *rd, size_t offset,
 
 	mdev = container_of((void *)rd, __typeof__(*mdev), rdev);
 
+	#ifndef ENV_BOOTBLOCK
+		printk(BIOS_DEBUG, "Mapping %lu %lu", offset, size);
+	#endif
 	mapping = mem_pool_alloc(&mdev->pool, size);
 
 	if (mapping == NULL)
 		return NULL;
+
+	printk(BIOS_DEBUG, "Worked!\n");
 
 	if (rd->ops->readat(rd, mapping, offset, size) != size) {
 		mem_pool_free(&mdev->pool, mapping);

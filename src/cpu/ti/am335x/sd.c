@@ -312,7 +312,7 @@ void init_sd(void)
 	storage_display_setup(&media);
 	printk(BIOS_DEBUG, "reading blocks\n");
 		
-	if (1)
+	if (0)
 	{
 		boot_from_sd();
 	}

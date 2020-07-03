@@ -188,7 +188,7 @@ int storage_startup(struct storage_media *media)
 
 	/* Increase the bus width if possible */
 	if (CONFIG(COMMONLIB_STORAGE_SD) && IS_SD(media))
-		err = 0;//sd_set_bus_width(media);
+		err = sd_set_bus_width(media);
 	else if (CONFIG(COMMONLIB_STORAGE_MMC))
 		err = mmc_set_bus_width(media);
 	if (err)
@@ -312,8 +312,8 @@ uint64_t storage_block_read(struct storage_media *media, uint64_t start,
 		if (storage_read(media, dest, start, cur) != cur)
 			return 0;
 		todo -= cur;
-		sd_mmc_trace("%s: Got %d blocks, more %d (total %d) to go.\n",
-			  __func__, (int)cur, (int)todo, (int)count);
+		//sd_mmc_trace("%s: Got %d blocks, more %d (total %d) to go.\n",
+		//	  __func__, (int)cur, (int)todo, (int)count);
 		start += cur;
 		dest += cur * media->read_bl_len;
 	} while (todo > 0);
