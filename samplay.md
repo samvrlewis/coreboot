@@ -838,9 +838,9 @@ EachDMTimer[2–7] functionalclockis selectedwithinthe PRCMusingthe associatedCL
 
 defaults to use the 25MHz clock- I think. Section 26.1.5.3 shows the clocking frequency which is based on SYSBOOT[15:14]
 
-For the BBB 6.7.1 shows the boot configuration. DNI = do not include. 14=1 15=0. So the 25MHz clock is indeed used.
+For the BBB 6.7.1 shows the boot configuration. DNI = do not include. 14=1 15=0. So [15:14] = [0 1] = 24MHz
 
-Planning to use dmtimer2 with default clock configuration. Means it runs at 25MHz. Aim for ~30 second resolution with the prescaler
+Planning to use dmtimer2 with default clock configuration. Means it runs at 24MHz. Aim for ~30 second resolution with the prescaler
 
 https://github.com/dawbarton/starterware/blob/master/platform/evmskAM335x/dmtimer.c
 
@@ -1357,3 +1357,87 @@ uint8_t* fdt = (uint8_t*)(0x88000000);
 	void (*kernel_entry)(void *, void*, void*);
 	kernel_entry = (void*)(0x82000000);
 	kernel_entry(0, (void*)~0, (void*)(0x88000000));
+
+
+https://stackoverflow.com/questions/23133969/am335x-ddr2-init-emif
+
+Should look at the u-boot-spl.map to see how uboot initialised DRAM. Maybe UBoot proper doesn't do the initialisation?
+
+Seems to be in /home/sam/work/third-party/u-boot-2020.04/arch/arm/mach-omap2/am33xx/emif4.c
+
+Don't think it uses the f4d5. Am335x manual says revision should be 4.
+
+https://github.com/embest-tech/AM335X_StarterWare_02_00_01_01/blob/e5064a2dfc89a359e08979eb811ae1ce823e874d/bootloader/src/armv7a/am335x/bl_platform.c
+
+https://e2e.ti.com/support/processors/f/791/t/723258?Linux-AM3354-DDR-PLL-configuration
+
+
+# 8GB SD cards
+
+They dont seem to like having the clock changed with my set_ios funciton. Even if it's just setting it to 400khz. Might be something about needing to set DTO as well?
+
+I think my set_ios function is just not very good. This is a set to change the clock frequency to what it already was. There shouldn't be such a big change.
+
+sysctl before 15367
+Set SD card freq to 400000
+sysctl after 917511
+
+Solved! It was because my function was clearing the bits of clkd directly and then going onto set other things before waiting for ICS. The result I think is that there was never a clock divider applied and the 16GB card was nice enough to work at 96MHz.
+
+# Guide to my SD cards
+
+Red sandisk = kernelanddtb directly at 0x00
+black kingston = blinky in a PL CBFS at 0x00
+black no name = fit image in PL CBFS at 0x00
+
+HASH of kernel: 1802662644 10031616
+HASH OF KERNEL: 1802662644 10031616
+
+Kernel gets the same hash in both the direct boot and the fit image boot. So must be some issue in reading the device tree out.
+
+Next steps is maybe to modify the fit image code such that it pulls the dtb out directly without modifying it, then seeing if it works and matches the non fitimage dtb hash.
+
+Maybe could try writing the processed dtb to SD card and then analyzing how it looks on the laptop?
+
+
+HASH of DTB: -347979390 93466 # In the fit code, reading it before modified
+HASH OF DTB -1164668863 93466 # From the SD card
+
+Seems as though fit_update_memory(dt); is the trouble maker
+- Maybe I'm just not defining my memory regions properly?
+
+I think the coreboot memory code is saying that Linux can use:
+
+Non reserved from 2181038080 to 2332033024 = 0x82000000 to 0x8B000000
+And can't use 2684207104 to 2684354560 = 0x9FFDC000 to 0xA0000000
+
+
+Other findings:
+
+Linux doesn't seem to like having the device tree at 0x82a00000 but is happy with it at 0x88000000. The ARM boot guide does say that "A safe location is just above the 128MiB boundary from start of RAM". 0x88000000=128MiB
+
+Should it not use memory that was used for loading in the RAMstage?
+
+I think it's OK. From what I understand, the zImage is smart enough to not load over itself.
+
+https://jsevy.com/linux/ARM_Linux_boot_sequence.html
+
+https://stackoverflow.com/questions/24746283/linux-kernel-boot-how-is-memory-allocation-done-when-dtb-and-initramfs-are-init/24768348#24768348
+
+When I set the Zimage load address to be 0x83000000 and the RAM to be 0x80000000-0xA0000000, it doesn't work. But with the load address of 0x82000000 it does. Why?
+
+0x81000000 Also doesn't work.
+0x83000000 = 48MB from start of RAM 
+0x82000000 = 32MB from start of RAM
+0x88000000 = 128MB from start of RAM
+
+
+--> Because I had hardcoded it to load from those addresses :| Getting rid of the hardcoding allows it to work properly
+
+Doesn't work unless I tell Linux that it can have memory from 0x80000000 through the DT. I wonder if this is because of the way I compiled Linux?
+
+So apparently while the ZImage can be put anywhere it is compiled into it where it should decompress to https://stackoverflow.com/questions/45314335/why-using-a-uimage-instead-of-a-zimage
+
+I can't actually see where or how this is set but I believe the entrypoint is 0x80008000. So it makes sense that nothing works if I try to do bigger than this as the RAM range.
+
+Next step is to maybe look at the code in fit.c and change it to allow regions of memory marked as used for coreboot as usable for linux. Then it's not wasting RAM when in Linux.
