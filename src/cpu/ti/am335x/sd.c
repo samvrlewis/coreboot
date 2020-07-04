@@ -6,6 +6,7 @@
 #include <commonlib/sd_mmc_ctrlr.h>
 #include <device/mmio.h>
 #include <delay.h>
+#include <assert.h>
 #include "sd.h"
 
 static int am335x_mmc_init(struct am335x_mmc *mmc)
@@ -216,8 +217,6 @@ static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 	}
 }
 
-uint8_t buffer[10200*1024];
-
 static struct storage_media media;
 static struct am335x_mmc_host mmc_host;
 
@@ -225,6 +224,33 @@ static struct am335x_mmc_host mmc_host;
 #include <symbols.h>
 #include <cbfs.h>
 
+
+static uint8_t overflow_block[512];
+
+static size_t partial_block_read(uint8_t *dest, uint64_t block, uint32_t offset, uint32_t count)
+{
+	printk(BIOS_DEBUG, "Reading from block %lld, offset %d, count %d\n", block, offset, count);
+	uint64_t blocks_read = storage_block_read(&media, block, 1, &overflow_block);
+
+	if (blocks_read != 1)
+	{
+		printk(BIOS_DEBUG, "Didn't read 1\n");
+		return 0;
+	}
+
+	assert((offset + count) <= 512);
+
+	int j=0;
+	for (int i=offset; i<(offset+count); i++)
+	{
+		dest[j++] = overflow_block[i];
+	}
+
+	return count;
+}
+
+
+// Needs to support reads that aren't necessarily aligned to the SD card blocks
 static ssize_t unleashed_sd_readat(const struct region_device *rdev, void *dest,
 					size_t offset, size_t count)
 {
@@ -233,18 +259,51 @@ static ssize_t unleashed_sd_readat(const struct region_device *rdev, void *dest,
 	// maybe easier just to preread it out to a buffer.. 
 	printk(BIOS_DEBUG, "unleashed read %d %d\n", offset, count);
 
-	uint8_t* dest8 = dest;
+	uint8_t* buffer = (uint8_t*)dest;
 
-	for (int i=0; i<count; i++)
+	uint64_t block_start = offset/512;
+	uint64_t block_end = (offset+count)/512;
+	uint64_t blocks = block_end - block_start + 1;
+
+	// read 20 bytes at offset 1020
+	size_t to_read = MIN(512-offset%512, count);
+	uint64_t cur_block = block_start;
+
+	size_t bytes_read = partial_block_read(buffer, block_start, offset%512, to_read);
+	
+	if (blocks == 1)
 	{
-		 dest8[i] = buffer[offset+i];
+		return bytes_read;
+	}
+	
+	cur_block++;
+	buffer += bytes_read;
+
+	if (blocks > 2)
+	{
+		// Read all the "whole" blocks between the start and end blocks
+		// Read them in one go because then the driver could support reading
+		// multiple blocks at a time.
+		to_read = blocks - 2;
+
+		printk(BIOS_DEBUG, "Reading from block %lld number of blocks %d\n", cur_block, to_read);
+		uint64_t blocks_read = storage_block_read(&media, cur_block, to_read , (void*)buffer);
+		
+		if (blocks_read != to_read)
+		{
+			printk(BIOS_DEBUG, "Didn't read all\n");
+			return blocks_read*512;
+		}
+		
+		bytes_read += to_read*512;
+		cur_block += to_read;
+		buffer += bytes_read;
 	}
 
-	return count;
+	// read the last block
+	bytes_read += partial_block_read(buffer, block_end, 0, count - bytes_read);
 	
-	
-	//storage_block_read(&media, offset, count/512, &dest);
-	//return count;
+	return bytes_read;
 }
 
 static const struct region_device_ops am335x_sd_ops = {
@@ -293,7 +352,6 @@ void init_sd(void)
 	am335x_mmc_init(mmc);
 
 	memset(mmc_ctrlr, 0, sizeof(mmc_ctrlr));
-	memset(&buffer, 0, sizeof(buffer));
 	mmc_ctrlr->send_cmd = &am335x_send_cmd;
 	mmc_ctrlr->set_ios = &set_ios;
 
@@ -318,9 +376,9 @@ void init_sd(void)
 	}
 
 
-	uint64_t blocks_read = storage_block_read(&media, 0, (10200*1024)/512, &buffer);
+	//storage_block_read(&media, 0, (10200*1024)/512, &buffer);
 
-	printk(BIOS_DEBUG, "read %llu blocks\n", blocks_read);
+	//printk(BIOS_DEBUG, "read %llu blocks\n", blocks_read);
 	mmap_helper_device_init(&sd_mdev,
 			_cbfs_cache, REGION_SIZE(cbfs_cache));
 
@@ -328,15 +386,6 @@ void init_sd(void)
 
 	return;
 
-	for (int i=0x0010000; i<0x13000; i+=2)
-	{
-
-		if (i%16==0)
-		{
-			printk(BIOS_DEBUG, "\n%08x: ", i);
-		}
-		printk(BIOS_DEBUG, "%02x%02x ", buffer[i], buffer[i+1]);
-	}
 
 
 	//storage_block_read(&media, 0, 1, &buffer);
