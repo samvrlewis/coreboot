@@ -98,7 +98,7 @@ size_t cbfs_load_and_decompress(const struct region_device *rdev, size_t offset,
 	size_t in_size, void *buffer, size_t buffer_size, uint32_t compression)
 {
 	size_t out_size;
-
+	printk(BIOS_DEBUG, "Compression is %d\n", compression);
 	switch (compression) {
 	case CBFS_COMPRESS_NONE:
 		if (buffer_size < in_size)
@@ -117,12 +117,20 @@ size_t cbfs_load_and_decompress(const struct region_device *rdev, size_t offset,
 		 * the caller to ensure that buffer_size is large enough
 		 * (see compression.h, guaranteed by cbfstool for stages). */
 		void *compr_start = buffer + buffer_size - in_size;
-		if (rdev_readat(rdev, compr_start, offset, in_size) != in_size)
+		ssize_t a = rdev_readat(rdev, compr_start, offset, in_size);
+		if (a != in_size)
+		{
+			printk(BIOS_DEBUG, "A: %d, insize: %d\n", a, in_size);
 			return 0;
+		}
 
+		printk(BIOS_DEBUG, "A: %d, insize: %d\n", a, in_size);
+
+		printk(BIOS_DEBUG, "Compression start %p, insize %d, buffer %p, buffer_size %d\n", compr_start, in_size, buffer, buffer_size);
 		timestamp_add_now(TS_START_ULZ4F);
 		out_size = ulz4fn(compr_start, in_size, buffer, buffer_size);
 		timestamp_add_now(TS_END_ULZ4F);
+		printk(BIOS_DEBUG, "out_size: %d %p %d\n", out_size, buffer, buffer_size);
 		return out_size;
 
 	case CBFS_COMPRESS_LZMA:
@@ -136,7 +144,10 @@ size_t cbfs_load_and_decompress(const struct region_device *rdev, size_t offset,
 			return 0;
 		void *map = rdev_mmap(rdev, offset, in_size);
 		if (map == NULL)
+		{
+			printk(BIOS_DEBUG, "Couldn't map lol\n");
 			return 0;
+		}
 
 		/* Note: timestamp not useful for memory-mapped media (x86) */
 		timestamp_add_now(TS_START_ULZMA);
@@ -240,17 +251,20 @@ int cbfs_prog_stage_load(struct prog *pstage)
 	 * that would hit this path initialize themselves. */
 	if ((ENV_BOOTBLOCK || ENV_SEPARATE_VERSTAGE) &&
 	    !CONFIG(NO_XIP_EARLY_STAGES) && CONFIG(BOOT_DEVICE_MEMORY_MAPPED)) {
+			printk(BIOS_DEBUG, "in here\n");
 		void *mapping = rdev_mmap(fh, foffset, fsize);
 		rdev_munmap(fh, mapping);
 		if (mapping == load)
 			goto out;
 	}
-
+	printk(BIOS_DEBUG, "Load %p Entry %p\n", load, entry);
 	fsize = cbfs_load_and_decompress(fh, foffset, fsize, load,
 					 stage.memlen, stage.compression);
 	if (!fsize)
+	{
+		printk(BIOS_DEBUG, "not fsize\n");
 		return -1;
-
+	}
 	/* Clear area not covered by file. */
 	memset(&load[fsize], 0, stage.memlen - fsize);
 
