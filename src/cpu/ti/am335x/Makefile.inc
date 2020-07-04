@@ -1,10 +1,10 @@
 bootblock-y	+= bootblock.c
-bootblock-y	+= sd.c
+bootblock-y	+= bootblock_media.c
 bootblock-y	+= gpio.c
 bootblock-y	+= pinmux.c
 bootblock-y	+= timer.c
 
-romstage-y	+= sd.c
+romstage-y	+= bootblock_media.c
 romstage-y	+= cbmem.c
 romstage-y	+= timer.c
 

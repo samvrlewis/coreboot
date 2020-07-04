@@ -128,13 +128,13 @@ FORCE_INLINE int LZ4_decompress_generic(
     const int checkOffset = ((safeDecode) && (dictSize < (int)(64 KB)));
     const int inPlaceDecode = ((ip >= op) && (ip < oend));
 
-    printk(BIOS_DEBUG, "LZ4g 1\n");
+
     /* Special cases */
     if ((partialDecoding) && (oexit> oend-MFLIMIT)) oexit = oend-MFLIMIT;                         /* targetOutputSize too high => decode everything */
     if ((endOnInput) && (unlikely(outputSize==0))) return ((inputSize==1) && (*ip==0)) ? 0 : -1;  /* Empty output buffer */
     if ((!endOnInput) && (unlikely(outputSize==0))) return (*ip==0?1:-1);
 
-    printk(BIOS_DEBUG, "LZ4g 2\n");
+
     /* Main Loop */
     while (1)
     {
@@ -143,24 +143,22 @@ FORCE_INLINE int LZ4_decompress_generic(
         const BYTE* match;
         size_t offset;
 
-        printk(BIOS_DEBUG, "LZ4g 3\n");
-
-        if (unlikely((inPlaceDecode) && (op + WILDCOPYLENGTH > ip))) {printk(BIOS_DEBUG, "LZ4g a\n");  goto _output_error; }  /* output stream ran over input stream */
+        if (unlikely((inPlaceDecode) && (op + WILDCOPYLENGTH > ip))) goto _output_error;   /* output stream ran over input stream */
 
         /* get literal length */
         token = *ip++;
         if ((length=(token>>ML_BITS)) == RUN_MASK)
         {
             unsigned s;
-            if ((endOnInput) && unlikely(ip>=iend-RUN_MASK)) {printk(BIOS_DEBUG, "LZ4g b\n");  goto _output_error; }  /* overflow detection */
+            if ((endOnInput) && unlikely(ip>=iend-RUN_MASK)) goto _output_error;   /* overflow detection */
             do
             {
                 s = *ip++;
                 length += s;
             }
             while ( likely(endOnInput ? ip<iend-RUN_MASK : 1) && (s==255) );
-            if ((safeDecode) && unlikely((size_t)(op+length)<(size_t)(op))) { printk(BIOS_DEBUG, "LZ4g 4\n"); goto _output_error;   /* overflow detection */ } 
-            if ((safeDecode) && unlikely((size_t)(ip+length)<(size_t)(ip))) { printk(BIOS_DEBUG, "LZ4g 5\n"); goto _output_error;   /* overflow detection */ }
+            if ((safeDecode) && unlikely((size_t)(op+length)<(size_t)(op))) goto _output_error;   /* overflow detection */
+            if ((safeDecode) && unlikely((size_t)(ip+length)<(size_t)(ip))) goto _output_error;   /* overflow detection */
         }
 
         /* copy literals */
@@ -170,13 +168,13 @@ FORCE_INLINE int LZ4_decompress_generic(
         {
             if (partialDecoding)
             {
-                if (cpy > oend) { printk(BIOS_DEBUG, "LZ4g 6\n"); goto _output_error;   }                        /* Error : write attempt beyond end of output buffer */
-                if ((endOnInput) && (ip+length > iend)) { printk(BIOS_DEBUG, "LZ4g 7\n"); goto _output_error; }  /* Error : read attempt beyond end of input buffer */
+                if (cpy > oend) goto _output_error;                           /* Error : write attempt beyond end of output buffer */
+                if ((endOnInput) && (ip+length > iend)) goto _output_error;   /* Error : read attempt beyond end of input buffer */
             }
             else
             {
-                if ((!endOnInput) && (cpy != oend)) {printk(BIOS_DEBUG, "LZ4g 8\n");  goto _output_error; }       /* Error : block decoding must stop exactly there */
-                if ((endOnInput) && ((ip+length != iend) || (cpy > oend))) {printk(BIOS_DEBUG, "LZ4g 9\n");  goto _output_error; }  /* Error : input must be consumed */
+                if ((!endOnInput) && (cpy != oend)) goto _output_error;       /* Error : block decoding must stop exactly there */
+                if ((endOnInput) && ((ip+length != iend) || (cpy > oend))) goto _output_error;   /* Error : input must be consumed */
             }
             memmove(op, ip, length);
             ip += length;
@@ -189,7 +187,7 @@ FORCE_INLINE int LZ4_decompress_generic(
         /* get offset */
         offset = LZ4_readLE16(ip); ip+=2;
         match = op - offset;
-        if ((checkOffset) && (unlikely(match < lowLimit))) {printk(BIOS_DEBUG, "LZ4g 10\n");  goto _output_error; }  /* Error : offset outside buffers */
+        if ((checkOffset) && (unlikely(match < lowLimit))) goto _output_error;   /* Error : offset outside buffers */
 
         /* get matchlength */
         length = token & ML_MASK;
@@ -202,14 +200,14 @@ FORCE_INLINE int LZ4_decompress_generic(
                 s = *ip++;
                 length += s;
             } while (s==255);
-            if ((safeDecode) && unlikely((size_t)(op+length)<(size_t)op)) {printk(BIOS_DEBUG, "LZ4g 11\n");  goto _output_error; }  /* overflow detection */
+            if ((safeDecode) && unlikely((size_t)(op+length)<(size_t)op)) goto _output_error;   /* overflow detection */
         }
         length += MINMATCH;
 
         /* check external dictionary */
         if ((dict==usingExtDict) && (match < lowPrefix))
         {
-            if (unlikely(op+length > oend-LASTLITERALS)) {printk(BIOS_DEBUG, "LZ4g 12\n");  goto _output_error; }  /* doesn't respect parsing restriction */
+            if (unlikely(op+length > oend-LASTLITERALS)) goto _output_error;   /* doesn't respect parsing restriction */
 
             if (length <= (size_t)(lowPrefix-match))
             {
@@ -257,7 +255,7 @@ FORCE_INLINE int LZ4_decompress_generic(
         if (unlikely(cpy>oend-12))
         {
             BYTE* const oCopyLimit = oend-(WILDCOPYLENGTH-1);
-            if (cpy > oend-LASTLITERALS) {printk(BIOS_DEBUG, "LZ4g 13\n");  goto _output_error; }   /* Error : last LASTLITERALS bytes must be literals (uncompressed) */
+            if (cpy > oend-LASTLITERALS) goto _output_error;    /* Error : last LASTLITERALS bytes must be literals (uncompressed) */
             if (op < oCopyLimit)
             {
                 LZ4_wildCopy(op, match, oCopyLimit);

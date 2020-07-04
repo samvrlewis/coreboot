@@ -221,8 +221,7 @@ int parse_bzImage_to_payload(const struct buffer *input,
 	if (hdr->setup_sects != 0) {
 		setup_size = (hdr->setup_sects + 1) * 512;
 	} else {
-		setup_size = 5 * 512;
-		WARN("hdr->setup_sects is 0, which could not cause boot problems.\n");
+		WARN("hdr->setup_sects is 0, which could cause boot problems.\n");
 	}
 
 	/* Setup parameter block. Imitate FILO. */

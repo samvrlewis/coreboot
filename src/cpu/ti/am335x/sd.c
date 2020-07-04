@@ -249,17 +249,11 @@ static size_t partial_block_read(uint8_t *dest, uint64_t block, uint32_t offset,
 	return count;
 }
 
-static int initalised = 0;
 
 // Needs to support reads that aren't necessarily aligned to the SD card blocks
 static ssize_t unleashed_sd_readat(const struct region_device *rdev, void *dest,
 					size_t offset, size_t count)
 {
-	if (!initalised)
-	{
-		init_sd();
-		initalised = 1;
-	}
 
 	// think I need to find the block that they want based on the offset
 	// maybe easier just to preread it out to a buffer.. 
@@ -320,7 +314,7 @@ static const struct region_device_ops am335x_sd_ops = {
 
 
 static struct mmap_helper_region_device sd_mdev =
-	MMAP_HELPER_REGION_INIT(&am335x_sd_ops, 0, 209*1024);
+	MMAP_HELPER_REGION_INIT(&am335x_sd_ops, 0, 10200*1024);
 
 const struct region_device *boot_device_ro(void)
 {

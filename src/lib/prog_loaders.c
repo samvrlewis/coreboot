@@ -70,11 +70,7 @@ void run_romstage(void)
 	timestamp_add_now(TS_START_COPYROM);
 
 	if (cbfs_prog_stage_load(&romstage))
-	{
-		printk(BIOS_DEBUG, "Couldn't load\n");
-goto fail;
-	}
-		
+		goto fail;
 
 	timestamp_add_now(TS_END_COPYROM);
 

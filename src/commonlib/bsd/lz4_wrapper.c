@@ -5,7 +5,6 @@
 #include <endian.h>
 #include <stdint.h>
 #include <string.h>
-#include <console/console.h>
 
 /* LZ4 comes with its own supposedly portable memory access functions, but they
  * seem to be very inefficient in practice (at least on ARM64). Since coreboot
@@ -107,7 +106,7 @@ size_t ulz4fn(const void *src, size_t srcn, void *dst, size_t dstn)
 	void *out = dst;
 	size_t out_size = 0;
 	int has_block_checksum;
-	printk(BIOS_DEBUG, "LZ4 %d\n", __LINE__);
+
 	{ /* With in-place decompression the header may become invalid later. */
 		const struct lz4_frame_header *h = in;
 
@@ -128,14 +127,10 @@ size_t ulz4fn(const void *src, size_t srcn, void *dst, size_t dstn)
 			in += sizeof(uint64_t);
 		in += sizeof(uint8_t);
 	}
-	printk(BIOS_DEBUG, "LZ4 %d\n", __LINE__);
+
 	while (1) {
 		if ((size_t)(in - src) + sizeof(struct lz4_block_header) > srcn)
-		{
-			printk(BIOS_DEBUG, "LZ4 %d\n", __LINE__);
 			break;          /* input overrun */
-		}
-			
 
 		struct lz4_block_header b = {
 			{ .raw = le32toh(*(const uint32_t *)in) }
@@ -143,14 +138,10 @@ size_t ulz4fn(const void *src, size_t srcn, void *dst, size_t dstn)
 		in += sizeof(struct lz4_block_header);
 
 		if ((size_t)(in - src) + b.size > srcn)
-		{
-			printk(BIOS_DEBUG, "LZ4 %d\n", __LINE__);
-			break;          /* input overrun */
-		}
+			break;			/* input overrun */
 
 		if (!b.size) {
 			out_size = out - dst;
-			printk(BIOS_DEBUG, "LZ4 %d\n", __LINE__);
 			break;			/* decompression successful */
 		}
 
@@ -159,11 +150,7 @@ size_t ulz4fn(const void *src, size_t srcn, void *dst, size_t dstn)
 				+ dstn - (uintptr_t)out);
 			memcpy(out, in, size);
 			if (size < b.size)
-			{
-				printk(BIOS_DEBUG, "LZ4 %d\n", __LINE__);
 				break;		/* output overrun */
-			}
-				
 			out += size;
 		} else {
 			/* constant folding essential, do not touch params! */
@@ -171,10 +158,7 @@ size_t ulz4fn(const void *src, size_t srcn, void *dst, size_t dstn)
 					dst + dstn - out, endOnInputSize,
 					full, 0, noDict, out, NULL, 0);
 			if (ret < 0)
-			{
-				printk(BIOS_DEBUG, "LZ4 %d\n", __LINE__);
 				break;		/* decompression error */
-			}
 			out += ret;
 		}
 
