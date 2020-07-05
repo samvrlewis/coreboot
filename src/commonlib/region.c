@@ -304,6 +304,8 @@ void *mmap_helper_rdev_mmap(const struct region_device *rd, size_t offset,
 	struct mmap_helper_region_device *mdev;
 	void *mapping;
 
+	printk(BIOS_DEBUG, "Mapping\n");
+
 	mdev = container_of((void *)rd, __typeof__(*mdev), rdev);
 
 	#ifndef ENV_BOOTBLOCK

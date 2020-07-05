@@ -145,7 +145,7 @@ size_t cbfs_load_and_decompress(const struct region_device *rdev, size_t offset,
 		void *map = rdev_mmap(rdev, offset, in_size);
 		if (map == NULL)
 		{
-			printk(BIOS_DEBUG, "Couldn't map lol\n");
+			printk(BIOS_DEBUG, "Couldn't map lol %d %d\n", offset, in_size);
 			return 0;
 		}
 
@@ -281,9 +281,5 @@ int cbfs_boot_region_device(struct region_device *rdev)
 {
 	boot_device_init();
 
-	if (ENV_RAMSTAGE)
-		return vboot_locate_cbfs(rdev) && fmap_locate_area_as_rdev("PL", rdev);
-	else {
-		return vboot_locate_cbfs(rdev) && fmap_locate_area_as_rdev("COREBOOT", rdev);
-	}
+	return vboot_locate_cbfs(rdev) && fmap_locate_area_as_rdev("COREBOOT", rdev);
 }

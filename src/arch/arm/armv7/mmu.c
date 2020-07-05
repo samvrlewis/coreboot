@@ -130,7 +130,7 @@ static void mmu_fill_table(pte_t *table, u32 start_idx, u32 end_idx,
 	}
 
 	
-	printk(BIOS_DEBUG, "5\n");
+	printk(BIOS_DEBUG, "mvbar %d\n", read_mpidr());
 	dsb();
 	isb();
 }

@@ -7,6 +7,7 @@
 #include <console/console.h>
 #include <assert.h>
 #include <commonlib/storage/sd_mmc.h>
+#include <cbmem.h>
 
 static struct storage_media *media;
 static volatile int sd = 1;
@@ -111,7 +112,7 @@ static ssize_t generic_readat(const struct region_device *rdev, void *dest,
 		{
 			if (buffer[j++] != mem[i])
 			{
-				printk(BIOS_DEBUG, "MISMATCH SD:%x MEM:%x IND:%d ADDR:%p DESTADDR:%p\n", buffer[j-1], mem[i], j-1, &mem[i], &buffer[j-1]);
+				//printk(BIOS_DEBUG, "MISMATCH SD:%x MEM:%x IND:%d ADDR:%p DESTADDR:%p\n", buffer[j-1], mem[i], j-1, &mem[i], &buffer[j-1]);
 			}
 		}
 	} else {
@@ -133,8 +134,30 @@ static const struct region_device_ops am335x_sd_ops = {
 
 
 static struct mmap_helper_region_device sd_mdev =
-	MMAP_HELPER_REGION_INIT(&am335x_sd_ops, 0, 111616);
+	MMAP_HELPER_REGION_INIT(&am335x_sd_ops, 0, 12200*1024);
 
+
+static void switch_to_postram_cache(int unused)
+{
+	printk(BIOS_DEBUG, "Switch to postram\n");
+	/*
+	 * Call boot_device_init() to ensure spi_flash is initialized before
+	 * backing mdev with postram cache. This prevents the mdev backing from
+	 * being overwritten if spi_flash was not accessed before dram was up.
+	 */
+	boot_device_init();
+	if (_preram_cbfs_cache != _postram_cbfs_cache)
+	{
+		mmap_helper_device_init(&sd_mdev, _postram_cbfs_cache,
+					REGION_SIZE(postram_cbfs_cache));
+		printk(BIOS_DEBUG, "Sapped\n");
+
+	} else {
+		printk(BIOS_DEBUG, "Didnt swap\n");
+	}
+		
+}
+ROMSTAGE_CBMEM_INIT_HOOK(switch_to_postram_cache);
 
 static int init = 0;
 
@@ -142,8 +165,17 @@ const struct region_device *boot_device_ro(void)
 {
 	if (!init)
 	{
+		printk(BIOS_DEBUG, "Initing this bizzines\n");
+
+		if (ENV_BOOTBLOCK)
+		{
 		mmap_helper_device_init(&sd_mdev,
 		_cbfs_cache, REGION_SIZE(cbfs_cache));
+		} else {
+			mmap_helper_device_init(&sd_mdev, _postram_cbfs_cache,
+					REGION_SIZE(postram_cbfs_cache));
+					printk(BIOS_DEBUG, "big boy\n");
+		}
 
 		if(sd)
 		{
