@@ -113,6 +113,6 @@ struct am335x_mmc_host {
 
 #define REG(x)(*((volatile uint32_t *)(x)))
 
-void init_sd(void);
+struct storage_media*  init_sd(void);
 
 #endif	/* AM335X_UART_H */

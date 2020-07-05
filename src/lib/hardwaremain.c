@@ -448,6 +448,7 @@ static inline void set32(uint32_t address, uint32_t mask, uint32_t value)
 
 void main(void)
 {
+	return;
 	/*
 	 * We can generally jump between C and Ada code back and forth
 	 * without trouble. But since we don't have an Ada main() we

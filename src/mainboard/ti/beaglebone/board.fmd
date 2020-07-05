@@ -1,13 +1,9 @@
 POOPONMYSHOES@0x402f0400 10200K {
     BIOS@0x0 109K {
-        BOOTBLOCK@0x0 15K
-        TTB 16K
+        BOOTBLOCK@0x0 20K
+        RAM 67K
+        COREBOOT(CBFS) 20K
         FMAP 2K
-
-        RAM 31K
-        COREBOOT(CBFS) 45K
     }
-	PAYLOAD 10000K{
-			PL(CBFS) 10000K
-	}
+    
 }
