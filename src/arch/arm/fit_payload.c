@@ -197,6 +197,7 @@ bool fit_payload_arch(struct prog *payload, struct fit_config_node *config,
 		if (!bootmem_walk(fit_place_mem, initrd))
 			return false;
 		/* Mark as reserved for future allocations. */
+		initrd->offset = 0x89000000;
 		bootmem_add_range(initrd->offset, initrd->size, BM_MEM_PAYLOAD);
 	}
 
