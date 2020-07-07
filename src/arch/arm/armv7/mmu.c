@@ -107,30 +107,19 @@ static void mmu_fill_table(pte_t *table, u32 start_idx, u32 end_idx,
 			   uintptr_t offset, u32 shift, pte_t attr)
 {
 	int i;
-	printk(BIOS_DEBUG, "Filling table with %d %d %d\n", start_idx, end_idx, shift);
 
 	/* Write out page table entries. */
 	for (i = start_idx; i < end_idx; i++)
 		table[i] = (offset + (i << shift)) | attr;
 
-		printk(BIOS_DEBUG, "2\n");
-
 	/* Flush the page table entries from the dcache. */
 	for (i = start_idx; i < end_idx; i++)
 		dccmvac((uintptr_t)&table[i]);
-	printk(BIOS_DEBUG, "3\n");
 	dsb();
-	printk(BIOS_DEBUG, "4\n");
 
 	/* Invalidate the TLB entries. */
 	for (i = start_idx; i < end_idx; i++)
-	{
-		//printk(BIOS_DEBUG, "invalidate %x\n",(unsigned int)(offset + (i << shift)) );
 		tlbimvaa(offset + (i << shift));
-	}
-
-	
-	printk(BIOS_DEBUG, "mvbar %d\n", read_mpidr());
 	dsb();
 	isb();
 }
@@ -235,10 +224,9 @@ void mmu_disable_range(u32 start_mb, u32 size_mb)
 
 void mmu_config_range(u32 start_mb, u32 size_mb, enum dcache_policy policy)
 {
-	printk(BIOS_DEBUG, "Mapping address range [%#.8x:%#.8x) as %s %d %d\n",
-	       start_mb * MiB, (start_mb + size_mb) * MiB, attrs[policy].name, start_mb, size_mb);
+	printk(BIOS_DEBUG, "Mapping address range [%#.8x:%#.8x) as %s\n",
+	       start_mb * MiB, (start_mb + size_mb) * MiB, attrs[policy].name);
 	assert(start_mb + size_mb <= 4 * (GiB/MiB));
-	printk(BIOS_DEBUG, "1\n");
 	mmu_fill_table(ttb_buff, start_mb / (BLOCK_SIZE/MiB),
 		       DIV_ROUND_UP(start_mb + size_mb, BLOCK_SIZE/MiB),
 		       0, BLOCK_SHIFT, ATTR_BLOCK | attrs[policy].value);

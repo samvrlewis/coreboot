@@ -75,10 +75,9 @@ static inline void tlbiall(void)
 }
 
 /* invalidate unified TLB by MVA, all ASID */
-static inline void tlbimvaa(uint32_t val)
+static inline void tlbimvaa(unsigned long mva)
 {
-	// this is actually tlbimva now
-	asm volatile ("mcr p15, 0, %0, c8, c7, 1" : : "r" (val) : "memory");
+	asm volatile ("mcr p15, 0, %0, c8, c7, 3" : : "r" (mva) : "memory");
 }
 
 /* write data access control register (DACR) */
@@ -94,14 +93,6 @@ static inline uint32_t read_mmfr0(void)
 	asm volatile ("mrc p15, 0, %0, c0, c1, 4" : "=r" (mmfr));
 	return mmfr;
 }
-
-static inline uint32_t read_mpidr2(void)
-{
-	uint32_t mmfr;
-	asm volatile ("mrc p15, 0, %0, c12, c0, 1" : "=r" (mmfr));
-	return mmfr;
-}
-
 /* read MAIR0 (memory address indirection register 0) */
 static inline uint32_t read_mair0(void)
 {
