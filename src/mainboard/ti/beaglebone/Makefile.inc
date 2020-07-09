@@ -19,8 +19,6 @@ romstage-y += romstage.c
 #ramstage-y += ramstage.c
 #ramstage-y += sdmmc.c
 
-ramstage-y += board.c
-
 bootblock-y += memlayout.ld
 romstage-y += memlayout.ld
 ramstage-y += memlayout.ld
