@@ -4,6 +4,9 @@
 #include <inttypes.h>
 #include <commonlib/sd_mmc_ctrlr.h>
 
+
+/// todo: change all of these
+
 #define MMCHS_SD_SYSCONFIG_SOFTRESET                   (0x1 << 1)  /* Software reset bit writing  */
 
 #define MMCHS_SD_SYSSTATUS_RESETDONE 0x01

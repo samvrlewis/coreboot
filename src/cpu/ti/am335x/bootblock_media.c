@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <commonlib/storage/sd_mmc.h>
 #include <cbmem.h>
+#include "header.h"
 
 #define SD_BLOCK_SIZE 512
 
@@ -94,8 +95,10 @@ static const struct region_device_ops am335x_sd_ops = {
 	.readat = sd_readat,
 };
 
+extern struct omap_image_headers headers;
+
 static struct mmap_helper_region_device sd_mdev =
-	MMAP_HELPER_REGION_INIT(&am335x_sd_ops, 0, 22200*1024);
+	MMAP_HELPER_REGION_INIT(&am335x_sd_ops, sizeof(headers), 22200*1024);
 
 static void switch_to_postram_cache(int unused)
 {
