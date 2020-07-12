@@ -14,7 +14,7 @@ static int am335x_mmc_init(struct am335x_mmc *mmc)
 	// Follows the initialisiation guide from the AM335X technical reference manual
 	write32(&mmc->sysconfig, read32(&mmc->sysconfig) | MMCHS_SD_SYSCONFIG_SOFTRESET);
 
-	while (!(read32(&mmc->sysstatus) & MMCHS_SD_SYSSTATUS_RESETDONE)) { printk(BIOS_DEBUG, "waiting on %d\n", __LINE__); }
+	while (!(read32(&mmc->sysstatus) & MMCHS_SD_SYSSTATUS_RESETDONE)) ;
 
 	// Set SD capabilities
 	write32(&mmc->capa, MMCHS_SD_CAPA_VS18 | MMCHS_SD_CAPA_VS30);
@@ -25,7 +25,7 @@ static int am335x_mmc_init(struct am335x_mmc *mmc)
 	// enable sd bus power
 	write32(&mmc->hctl, read32(&mmc->hctl) | MMCHS_SD_HCTL_SDBP);
 
-	while(!(read32(&mmc->hctl) & MMCHS_SD_HCTL_SDBP)) { printk(BIOS_DEBUG, "waiting on %d\n", __LINE__); }
+	while(!(read32(&mmc->hctl) & MMCHS_SD_HCTL_SDBP)) ;
 
 	// set initial clock speed
 	// the input clock is at 96MHz so this puts it at 400 KHz
@@ -35,7 +35,7 @@ static int am335x_mmc_init(struct am335x_mmc *mmc)
 	write32(&mmc->sysctl, read32(&mmc->sysctl) | MMCHS_SD_SYSCTL_ICE | MMCHS_SD_SYSCTL_CEN);
 
 	//wait for clock to be stable
-	while(!(read32(&mmc->sysctl) & MMCHS_SD_SYSCTL_ICS)) { printk(BIOS_DEBUG, "waiting on %d\n", __LINE__); }
+	while(!(read32(&mmc->sysctl) & MMCHS_SD_SYSCTL_ICS)) ;
 
 	//enable interrupts
 	write32(&mmc->ie, 0xffffffffu);
@@ -49,7 +49,7 @@ static int am335x_mmc_init(struct am335x_mmc *mmc)
 	write32(&mmc->cmd, 0x00);
 
 	// wait for command complete
-	while (!(read32(&mmc->stat) & MMCHS_SD_STAT_CC)) { printk(BIOS_DEBUG, "waiting on %d\n", __LINE__); }
+	while (!(read32(&mmc->stat) & MMCHS_SD_STAT_CC)) ;
 
 	// clear interrupts
 	write32(&mmc->stat, 0xffffffffu);
@@ -122,7 +122,7 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 
 	// Check to ensure that there wasn't any errors
 	if (read32(&reg->stat) & MMCHS_SD_STAT_ERRI) {
-		printk(BIOS_DEBUG, "Error while reading %08x\n", read32(&reg->stat));
+		printk(BIOS_WARNING, "Error while reading %08x\n", read32(&reg->stat));
 		write32(&reg->stat, MMCHS_SD_STAT_ERROR_MASK);
 		return 1;
 	}
@@ -152,10 +152,10 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 	}
 
 	if (data != NULL && data->flags & DATA_FLAG_READ) {
-		while(!(read32(&reg->stat) & MMCHS_SD_IE_BRR_ENABLE_ENABLE)) { printk(BIOS_ERR, "SD: Waiting MMCHS_SD_IE_BRR_ENABLE_ENABLE\n"); }
+		while(!(read32(&reg->stat) & MMCHS_SD_IE_BRR_ENABLE_ENABLE)) ;
 
 		if (!(read32(&reg->pstate) & MMCHS_SD_PSTATE_BRE_EN)) {
-			printk(BIOS_DEBUG, "Can't read from data buffer\n");
+			printk(BIOS_WARNING, "Can't read from data buffer\n");
 			return 1;
 		}
 
@@ -175,8 +175,6 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 	return 0;
 }
 
-#define SD_CLK_FREQ 96000000
-
 static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 {
 	struct am335x_mmc_host *mmc;
@@ -193,8 +191,8 @@ static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 		requested_hz = MIN(requested_hz, ctrlr->f_min);
 		requested_hz = MAX(requested_hz, ctrlr->f_max);
 
-		uint32_t divisor = SD_CLK_FREQ / requested_hz;
-		uint32_t actual = SD_CLK_FREQ*divisor;
+		uint32_t divisor = mmc->sd_clock_hz / requested_hz;
+		uint32_t actual = mmc->sd_clock_hz*divisor;
 
 		if (actual != ctrlr->bus_hz)
 		{
@@ -211,95 +209,36 @@ static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 
 			setbits32(&reg->sysctl, MMCHS_SD_SYSCTL_CEN);
 
-			ctrlr->bus_hz = SD_CLK_FREQ/divisor;
+			ctrlr->bus_hz = mmc->sd_clock_hz/divisor;
 			printk(BIOS_DEBUG, "Set SD card freq to %d", ctrlr->bus_hz);
 		}
 	}
 }
 
-#include <boot_device.h>
-#include <symbols.h>
-#include <cbfs.h>
-
-static struct storage_media media;
-static struct am335x_mmc_host mmc_host;
-
-
-// static struct mmap_helper_region_device sd_mdev =
-// 	MMAP_HELPER_REGION_INIT(&am335x_sd_ops, 0, 10200*1024);
-
-// const struct region_device *boot_device_ro(void)
-// {
-// 	return &sd_mdev.rdev;
-// }
-
-static void boot_from_sd(void)
+int am335x_sd_init_storage(struct am335x_mmc_host * mmc_host)
 {
-	uint64_t blocks_read = storage_block_read(&media, 0, 19593, (void*)(0x82000000));
-	blocks_read = storage_block_read(&media, 19593, 185, (void*)(0x88000000));
+	int err = 0;
 
-	uint8_t* fdt = (uint8_t*)(0x88000000);
-	for (int i=0; i < 20; i++)
+	struct sd_mmc_ctrlr *mmc_ctrlr = &mmc_host->sd_mmc_ctrlr;
+	memset(mmc_ctrlr, 0, sizeof(mmc_ctrlr));
+
+
+	err = am335x_mmc_init(mmc_host->reg);
+	if (err != 0)
 	{
-			printk(BIOS_DEBUG, "%x\n", fdt[i]);
+		printk(BIOS_ERR, "ERROR: Initialising AM335X SD failed.\n");
+		return err;
 	}
 
-	dcache_mmu_disable();
-	
-	printk(BIOS_DEBUG, "turned it off\n");
-	void (*kernel_entry)(void *, void*, void*);
-	kernel_entry = (void*)(0x82000000);
-	kernel_entry(0, (void*)~0, (void*)(0x88000000));
-}
-
-struct storage_media* init_sd(void)
-{
-	
-    struct am335x_mmc *mmc = (void*)0x48060000;
-
-	mmc_host.reg = mmc;
-
-	struct sd_mmc_ctrlr *mmc_ctrlr = &mmc_host.sd_mmc_ctrlr;
-
-	am335x_mmc_init(mmc);
-
-	memset(mmc_ctrlr, 0, sizeof(mmc_ctrlr));
 	mmc_ctrlr->send_cmd = &am335x_send_cmd;
 	mmc_ctrlr->set_ios = &set_ios;
 
 	mmc_ctrlr->voltages = MMC_VDD_30_31;
-	mmc_ctrlr->b_max = 1; //only support 1 block at a time
+	mmc_ctrlr->b_max = 1;
 	mmc_ctrlr->bus_width = 1;
 	mmc_ctrlr->f_max = 48000000;
 	mmc_ctrlr->f_min =  400000;
 	mmc_ctrlr->bus_hz = 400000;
 
-	media.ctrlr = mmc_ctrlr;
-
-	printk(BIOS_DEBUG, "pre storage\n");
-	storage_setup_media(&media, mmc_ctrlr);
-	printk(BIOS_DEBUG, "post storage\n");
-	storage_display_setup(&media);
-	printk(BIOS_DEBUG, "reading blocks\n");
-		
-	if (0)
-	{
-		boot_from_sd();
-	}
-
-
-	//storage_block_read(&media, 0, (10200*1024)/512, &buffer);
-
-	//printk(BIOS_DEBUG, "read %llu blocks\n", blocks_read);
-	return &media;
-
-
-
-	//storage_block_read(&media, 0, 1, &buffer);
-
-	//storage_block_read(&media, 0, 1, &buffer);
-
-	
-
-	//	printk(BIOS_DEBUG, "post storage\n");
+	return 0;
 }

@@ -413,37 +413,6 @@ static void boot_state_schedule_static_entries(void)
 }
 
 
-#include <commonlib/storage.h>
-#define uart_putf(X...) printk(BIOS_INFO, "ramstage: " X)
-
-/**
- * Write a uint32_t value to a memory address
- */
-static inline void write32(uint32_t address, uint32_t value)
-{
-	REG(address)= value;
-}
-
-/**
- * Read an uint32_t from a memory address
- */
-static inline uint32_t read32(uint32_t address)
-{
-	return REG(address);
-}
-
-/**
- * Set a 32 bits value depending on a mask
- */
-static inline void set32(uint32_t address, uint32_t mask, uint32_t value)
-{
-	uint32_t val;
-	val= read32(address);
-	val&= ~(mask); /* clear the bits */
-	val|= (value & mask); /* apply the value using the mask */
-	write32(address, val);
-}
-
 
 
 void main(void)
