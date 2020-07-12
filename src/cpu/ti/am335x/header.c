@@ -47,7 +47,7 @@ struct omap_image_headers headers __attribute__((section(".header"))) = {
 		}
 	},
 	.image_header = {
-		.size = (uintptr_t)(109*1024),
+		.size = (uintptr_t)&header_load_size,
 		.destination = (uintptr_t)_sram
 	}
 };
