@@ -230,6 +230,8 @@ void fit_payload(struct prog *payload)
 		return;
 	}
 
+		printk(BIOS_ERR, "ERROR: im back\n");
+
 	/* Update ramdisk location in FDT */
 	if (config->ramdisk)
 		fit_add_ramdisk(dt, (void *)initrd.offset, initrd.size);

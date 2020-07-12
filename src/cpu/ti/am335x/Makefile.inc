@@ -15,7 +15,6 @@ ramstage-y	+= bootblock_media.c
 
 bootblock-y	+= uart.c
 romstage-y	+= uart.c
-romstage-y	+= ddr_init_x.c
 romstage-y	+= ddr_init.c
 ramstage-y	+= uart.c
 ramstage-y  += sd.c

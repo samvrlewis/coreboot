@@ -26,6 +26,10 @@ The section must be named in order to be found by the FIT parser:
 
 The FIT parser needs architecure support.
 
+### armv7 
+
+something here
+
 ### aarch64
 The source code can be found in `src/arch/arm64/fit_payload.c`.
 

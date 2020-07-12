@@ -4,14 +4,9 @@
 #include <program_loading.h>
 #include <console/console.h>
 #include <cbmem.h>
-#include <cpu/ti/am335x/ddr_init_x.h>
 #include <cpu/ti/am335x/ddr_init.h>
-
 #include <lib.h>
 #include <symbols.h>
-
-#define uart_putf(X...) printk(BIOS_INFO, "romstage: " X)
-
 
 /* Micron MT41K256M16HA-125E */
 #define MT41K256M16HA125E_EMIF_READ_LATENCY	0x100007
@@ -30,7 +25,6 @@
 #define MT41K256M16HA125E_IOCTRL_VALUE		0x18B
 
 #define EMIF_OCP_CONFIG_BEAGLEBONE_BLACK       0x00141414
-
 
 const struct ctrl_ioregs ioregs_bonelt = {
 	.cm0ioctl		= MT41K256M16HA125E_IOCTRL_VALUE,
@@ -73,62 +67,12 @@ void main(void)
 {
 	console_init();
 	printk(BIOS_INFO, "Hello from romstage.\n");
-//config_ddr_x();
-			config_ddr(400, &ioregs_bonelt,
-			   &ddr3_beagleblack_data,
-			   &ddr3_beagleblack_cmd_ctrl_data,
-			   &ddr3_beagleblack_emif_reg_data, 0);
+	
+	config_ddr(400, &ioregs_bonelt,
+		&ddr3_beagleblack_data,
+		&ddr3_beagleblack_cmd_ctrl_data,
+		&ddr3_beagleblack_emif_reg_data, 0);
 
-			   
-
-
-	printk(BIOS_INFO, "RAM INIT Done\n");
-
- 	if (0) {
-	    #include <stdint.h>
-	    uint32_t	*p = (uint32_t*)0x80000000;
-	  	uint32_t	*endp = (uint32_t*)(0x80000000+512*1024*1024);
-//	  	uint32_t	*endp = (uint32_t*)(0x80000000+64*1024*1024);
-	  	int			i=0;
-	  	
-	  	uart_putf("start DDR3 ram test, from 0x%p to 0x%p\n",p,endp);
-	  	
-	  	uart_putf("    writing...\n");
-	  	while ( p < endp )
-	  	{
-		  	*p = (uint32_t)i;
-		  	p++;
-		  	i++;
-	  	}
-	  	
-	  	i=0;
-	  	p = (uint32_t*)0x80000000;
-
-	  	uart_putf("    checking...\n");
-	  	while ( p < endp )
-	  	{
-		  	if ( *p != (uint32_t)i )
-		  	{
-			  	uart_putf("mem check error\n");
-			  	//uart_putf("    address : 0x%x\n",p);
-			  	//uart_putf("    expected: 0x%x\n",i);
-			  	//uart_putf("    actual  : 0x%x\n",*p);
-		  		p = endp + 8;
-	  		}
-		  	else
-		  	{
-		  		p++;
-		  		i++;
-  			}
-	  	}
-	  	
-	  	if ( p != (endp + 8) )
-	  		uart_putf("DDR3 ram test OK\n");
-	  	else
-	  		uart_putf("DDR3 ram test FAIL\n");
-    }
-
-	printk(BIOS_DEBUG, "CONFIG_ROM_SIZE %d\n", CONFIG_ROM_SIZE);
 
 	cbmem_initialize_empty();
 	ram_check(0x80000000, 0x80500000);

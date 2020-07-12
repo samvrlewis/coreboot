@@ -309,7 +309,7 @@ static bool walk_memory_table(const struct range_entry *r, void *arg)
 	 * aligned, let's trim the regions such that unaligned padding
 	 * is added to reserved memory.
 	 */
-	if (range_entry_tag(r) != BM_MEM_RESERVED) {
+	if (range_entry_tag(r) == BM_MEM_RAM) {
 		uint64_t new_start = ALIGN_UP(range_entry_base(r), 1 * MiB);
 		uint64_t new_end = ALIGN_DOWN(range_entry_end(r), 1 * MiB);
 
