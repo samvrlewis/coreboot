@@ -13,7 +13,7 @@ void *mem_pool_alloc(struct mem_pool *mp, size_t sz)
 	sz = ALIGN_UP(sz, 8);
 
 
-		printk(BIOS_DEBUG, "Allocing size %llu Free space %llu\n", (unsigned long long)sz, (unsigned long long) (mp->size - mp->free_offset));
+		//printk(BIOS_DEBUG, "Allocing size %llu Free space %llu\n", (unsigned long long)sz, (unsigned long long) (mp->size - mp->free_offset));
 
 	/* Determine if any space available. */
 	if ((mp->size - mp->free_offset) < sz)

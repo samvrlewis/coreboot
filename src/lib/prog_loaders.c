@@ -27,7 +27,7 @@ int prog_locate(struct prog *prog)
 {
 	struct cbfsf file;
 
-	printk(BIOS_DEBUG, "locating\n");
+	//printk(BIOS_DEBUG, "locating\n");
 
 	if (prog_locate_hook(prog))
 	{

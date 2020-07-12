@@ -16,8 +16,8 @@ static uint8_t overflow_block[512];
 
 static size_t partial_block_read(uint8_t *dest, uint64_t block, uint32_t offset, uint32_t count)
 {
-	printk(BIOS_DEBUG, "Reading from block %lld, offset %d, count %d\n", block, offset, count);
-	printk(BIOS_DEBUG, "Writing to %p\n", dest);
+	//printk(BIOS_DEBUG, "Reading from block %lld, offset %d, count %d\n", block, offset, count);
+	//printk(BIOS_DEBUG, "Writing to %p\n", dest);
 	uint64_t blocks_read = storage_block_read(media, block, 1, &overflow_block);
 
 	if (blocks_read != 1)
@@ -45,7 +45,7 @@ static ssize_t sd_readat(const struct region_device *rdev, void *dest,
 
 	// think I need to find the block that they want based on the offset
 	// maybe easier just to preread it out to a buffer.. 
-	printk(BIOS_DEBUG, "unleashed read %d %d\n", offset, count);
+	//printk(BIOS_DEBUG, "unleashed read %d %d\n", offset, count);
 
 	uint8_t* buffer = (uint8_t*)dest;
 
@@ -74,8 +74,8 @@ static ssize_t sd_readat(const struct region_device *rdev, void *dest,
 		// multiple blocks at a time.
 		to_read = blocks - 2;
 
-		printk(BIOS_DEBUG, "Reading from block %lld number of blocks %d\n", cur_block, to_read);
-		printk(BIOS_DEBUG, "Writing to %p\n", buffer);
+		//printk(BIOS_DEBUG, "Reading from block %lld number of blocks %d\n", cur_block, to_read);
+		//printk(BIOS_DEBUG, "Writing to %p\n", buffer);
 		uint64_t blocks_read = storage_block_read(media, cur_block, to_read , (void*)buffer);
 		
 		if (blocks_read != to_read)
@@ -102,7 +102,7 @@ static ssize_t generic_readat(const struct region_device *rdev, void *dest,
 	uint8_t *mem = (uint8_t*)0x402f0400;
 	uint8_t *buffer = (uint8_t*)dest;
 
-	printk(BIOS_DEBUG, "generic read %d %d\n", offset, count);
+	//printk(BIOS_DEBUG, "generic read %d %d\n", offset, count);
 	
 	if (sd)
 	{

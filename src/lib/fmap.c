@@ -110,7 +110,7 @@ static int find_fmap_directory(struct region_device *fmrd)
 	size_t offset = FMAP_OFFSET;
 
 
-	printk(BIOS_DEBUG, "a\n");
+	//printk(BIOS_DEBUG, "a\n");
 
 	/* Try FMAP cache first */
 	if (!region_device_sz(&fmap_cache.rdev))
@@ -119,12 +119,12 @@ static int find_fmap_directory(struct region_device *fmrd)
 	}
 	if (region_device_sz(&fmap_cache.rdev))
 	{
-		printk(BIOS_DEBUG, "d\n");
+	//	printk(BIOS_DEBUG, "d\n");
 		return rdev_chain_full(fmrd, &fmap_cache.rdev);
 	}
 		
 
-	printk(BIOS_DEBUG, "c\n");
+	//printk(BIOS_DEBUG, "c\n");
 	boot_device_init();
 	boot = boot_device_ro();
 

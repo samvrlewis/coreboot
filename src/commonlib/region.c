@@ -59,12 +59,12 @@ void *rdev_mmap(const struct region_device *rd, size_t offset, size_t size)
 		return NULL;
 
 	rdev = rdev_root(rd);
-	printk(BIOS_DEBUG, "13\n");
+	//printk(BIOS_DEBUG, "13\n");
 	if (rdev->ops->mmap == NULL)
 		return NULL;
 
 	
-		printk(BIOS_DEBUG, "14\n");
+		//printk(BIOS_DEBUG, "14\n");
 	return rdev->ops->mmap(rdev, req.offset, req.size);
 }
 
@@ -94,8 +94,8 @@ ssize_t rdev_readat(const struct region_device *rd, void *b, size_t offset,
 
 	rdev = rdev_root(rd);
 
-	printk(BIOS_DEBUG, "Reading at %zu %zu\n", req.offset, req.size);
-	printk(BIOS_DEBUG, "From %zu %zu\n", rdev->region.offset, rdev->region.size);
+	//printk(BIOS_DEBUG, "Reading at %zu %zu\n", req.offset, req.size);
+	//printk(BIOS_DEBUG, "From %zu %zu\n", rdev->region.offset, rdev->region.size);
 
 	return rdev->ops->readat(rdev, b, req.offset, req.size);
 }
@@ -304,7 +304,7 @@ void *mmap_helper_rdev_mmap(const struct region_device *rd, size_t offset,
 	struct mmap_helper_region_device *mdev;
 	void *mapping;
 
-	printk(BIOS_DEBUG, "Mapping\n");
+	//printk(BIOS_DEBUG, "Mapping\n");
 
 	mdev = container_of((void *)rd, __typeof__(*mdev), rdev);
 
@@ -316,7 +316,7 @@ void *mmap_helper_rdev_mmap(const struct region_device *rd, size_t offset,
 	if (mapping == NULL)
 		return NULL;
 
-	printk(BIOS_DEBUG, "Worked!\n");
+	//printk(BIOS_DEBUG, "Worked!\n");
 
 	if (rd->ops->readat(rd, mapping, offset, size) != size) {
 		mem_pool_free(&mdev->pool, mapping);
