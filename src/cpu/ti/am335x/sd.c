@@ -12,30 +12,29 @@
 static int am335x_mmc_init(struct am335x_mmc *mmc)
 {
 	// Follows the initialisiation guide from the AM335X technical reference manual
-	write32(&mmc->sysconfig, read32(&mmc->sysconfig) | MMCHS_SD_SYSCONFIG_SOFTRESET);
+	write32(&mmc->sysconfig, read32(&mmc->sysconfig) | SYSCONFIG_SOFTRESET);
 
-	while (!(read32(&mmc->sysstatus) & MMCHS_SD_SYSSTATUS_RESETDONE)) ;
+	while (!(read32(&mmc->sysstatus) & SYSSTATUS_RESETDONE)) ;
 
 	// Set SD capabilities
-	write32(&mmc->capa, MMCHS_SD_CAPA_VS18 | MMCHS_SD_CAPA_VS30);
+	write32(&mmc->capa, CAPA_VS30);
 
-	// one diff - sdbp is turned on later
-	write32(&mmc->hctl, MMCHS_SD_HCTL_SDVS_VS30 | MMCHS_SD_HCTL_DTW_1BIT);
+	write32(&mmc->hctl, HCTL_SDVS_VS30 | HCTL_DTW_1BIT);
 
 	// enable sd bus power
-	write32(&mmc->hctl, read32(&mmc->hctl) | MMCHS_SD_HCTL_SDBP);
+	write32(&mmc->hctl, read32(&mmc->hctl) | HCTL_SDBP);
 
-	while(!(read32(&mmc->hctl) & MMCHS_SD_HCTL_SDBP)) ;
+	while(!(read32(&mmc->hctl) & HCTL_SDBP)) ;
 
 	// set initial clock speed
 	// the input clock is at 96MHz so this puts it at 400 KHz
 	write32(&mmc->sysctl, read32(&mmc->sysctl) | 240 << 6);
 
 	// enable internal internal clock and clock to card
-	write32(&mmc->sysctl, read32(&mmc->sysctl) | MMCHS_SD_SYSCTL_ICE | MMCHS_SD_SYSCTL_CEN);
+	write32(&mmc->sysctl, read32(&mmc->sysctl) | SYSCTL_ICE | SYSCTL_CEN);
 
 	//wait for clock to be stable
-	while(!(read32(&mmc->sysctl) & MMCHS_SD_SYSCTL_ICS)) ;
+	while(!(read32(&mmc->sysctl) & SYSCTL_ICS)) ;
 
 	//enable interrupts
 	write32(&mmc->ie, 0xffffffffu);
@@ -44,18 +43,18 @@ static int am335x_mmc_init(struct am335x_mmc *mmc)
 	write32(&mmc->stat, 0xffffffffu);
 
 	// card detection, identification and selection
-	write32(&mmc->con, read32(&mmc->con) | MMCHS_SD_CON_INIT);
+	write32(&mmc->con, read32(&mmc->con) | CON_INIT);
 
 	write32(&mmc->cmd, 0x00);
 
 	// wait for command complete
-	while (!(read32(&mmc->stat) & MMCHS_SD_STAT_CC)) ;
+	while (!(read32(&mmc->stat) & STAT_CC)) ;
 
 	// clear interrupts
 	write32(&mmc->stat, 0xffffffffu);
 
 	// finish initialisation
-	write32(&mmc->con, read32(&mmc->con) & ~MMCHS_SD_CON_INIT);
+	write32(&mmc->con, read32(&mmc->con) & ~CON_INIT);
 
 	return 0;
 }
@@ -68,7 +67,7 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 	mmc = container_of(ctrlr, struct am335x_mmc_host, sd_mmc_ctrlr);
 	reg = mmc->reg;
 
-	if (read32(&reg->stat) & 0xffffffffu)
+	if (read32(&reg->stat))
 	{
 		printk(BIOS_WARNING, "SD: Interrupt already raised\n");
 		return 1;
@@ -78,9 +77,9 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 
 	if (data) {
 		if (data->flags & DATA_FLAG_READ) {
-			write32(&mmc->reg->ie, MMCHS_SD_IE_BRR_ENABLE_ENABLE);
+			write32(&mmc->reg->ie, IE_BRR);
 			write32(&mmc->reg->blk, data->blocksize);
-			transfer_type |= MMCHS_SD_CMD_DP_DATA | MMCHS_SD_CMD_DDIR_READ;
+			transfer_type |= DP_DATA | DDIR_READ;
 		}
 		
 		if (data->flags & DATA_FLAG_WRITE) {
@@ -91,17 +90,17 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 
 	switch (cmd->resp_type) {
 		case CARD_RSP_R1b:
-			transfer_type |= MMCHS_SD_CMD_RSP_TYPE_48B_BUSY;
+			transfer_type |= RSP_TYPE_48B_BUSY;
 			break;
 		case CARD_RSP_R1:
 		case CARD_RSP_R3:
-			transfer_type |= MMCHS_SD_CMD_RSP_TYPE_48B;
+			transfer_type |= RSP_TYPE_48B;
 			break;
 		case CARD_RSP_R2:
-			transfer_type |= MMCHS_SD_CMD_RSP_TYPE_136B;
+			transfer_type |= RSP_TYPE_136B;
 			break;
 		case CARD_RSP_NONE:
-			transfer_type |= MMCHS_SD_CMD_RSP_TYPE_NO_RESP;
+			transfer_type |= RSP_TYPE_NO_RESP;
 			break;
 		default:
 			printk(BIOS_ERR, "SD: Unknown response type\n");
@@ -114,25 +113,27 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 	}
 
 	write32(&reg->arg, cmd->cmdarg);
-	write32(&reg->cmd, MMCHS_SD_CMD_INDX_CMD(cmd->cmdidx) | transfer_type);
+	write32(&reg->cmd, CMD_INDEX(cmd->cmdidx) | transfer_type);
 
 	// Wait for any interrupt
 	while (!read32(&reg->stat))
 		;
 
 	// Check to ensure that there wasn't any errors
-	if (read32(&reg->stat) & MMCHS_SD_STAT_ERRI) {
+	if (read32(&reg->stat) & STAT_ERRI) {
 		printk(BIOS_WARNING, "Error while reading %08x\n", read32(&reg->stat));
-		write32(&reg->stat, MMCHS_SD_STAT_ERROR_MASK);
+
+		// clear the errors
+		write32(&reg->stat, STAT_ERROR_MASK);
 		return 1;
 	}
 		
 	if (cmd->resp_type == CARD_RSP_R1b) {
-		while (!(read32(&reg->stat) & MMCHS_SD_IE_TC_ENABLE_ENABLE)) ;
-		write32(&reg->stat, MMCHS_SD_IE_TC_ENABLE_ENABLE);
+		while (!(read32(&reg->stat) & IE_TC)) ;
+		write32(&reg->stat, IE_TC);
 	}
 
-	write32(&reg->stat, MMCHS_SD_IE_CC_ENABLE_CLEAR);
+	write32(&reg->stat, IE_CC);
 
 		/* copy response into cmd->resp	 */
 	switch (cmd->resp_type) {
@@ -152,12 +153,7 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 	}
 
 	if (data != NULL && data->flags & DATA_FLAG_READ) {
-		while(!(read32(&reg->stat) & MMCHS_SD_IE_BRR_ENABLE_ENABLE)) ;
-
-		if (!(read32(&reg->pstate) & MMCHS_SD_PSTATE_BRE_EN)) {
-			printk(BIOS_WARNING, "Can't read from data buffer\n");
-			return 1;
-		}
+		while(!(read32(&reg->stat) & IE_BRR)) ;
 
 		uint32_t* dest32 = (uint32_t*)data->dest;
 
@@ -167,9 +163,9 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 			dest32++; 
 		}
 
-		write32(&reg->stat, MMCHS_SD_IE_TC_ENABLE_CLEAR);
-		write32(&reg->stat, MMCHS_SD_IE_BRR_ENABLE_CLEAR);
-		write32(&mmc->reg->ie, MMCHS_SD_IE_BRR_ENABLE_DISABLE);
+		setbits32(&reg->stat, IE_TC);
+		setbits32(&reg->stat, IE_BRR);
+		clrbits32(&reg->ie, IE_BRR);
 	}
 
 	return 0;
@@ -196,18 +192,19 @@ static void set_ios(struct sd_mmc_ctrlr *ctrlr)
 
 		if (actual != ctrlr->bus_hz)
 		{
-			clrbits32(&reg->sysctl, MMCHS_SD_SYSCTL_CEN);
+			clrbits32(&reg->sysctl, SYSCTL_CEN);
 			
 			uint32_t new_sysctl = read32(&reg->sysctl);
 			new_sysctl &= ~(0x3ff << 6);
-			new_sysctl |= (divisor << 6);
+			new_sysctl |= ((divisor & 0x3ff) << 6);
 
 			write32(&reg->sysctl, new_sysctl);
 
-			while (!(read32(&reg->sysctl) & MMCHS_SD_SYSCTL_ICS))
+			// wait for clock stability
+			while (!(read32(&reg->sysctl) & SYSCTL_ICS))
 				;
 
-			setbits32(&reg->sysctl, MMCHS_SD_SYSCTL_CEN);
+			setbits32(&reg->sysctl, SYSCTL_CEN);
 
 			ctrlr->bus_hz = mmc->sd_clock_hz/divisor;
 			printk(BIOS_DEBUG, "Set SD card freq to %d", ctrlr->bus_hz);
