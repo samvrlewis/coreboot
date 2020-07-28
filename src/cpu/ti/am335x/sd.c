@@ -12,38 +12,39 @@
 static int am335x_mmc_init(struct am335x_mmc *mmc)
 {
 	// Follows the initialisiation guide from the AM335X technical reference manual
-	write32(&mmc->sysconfig, read32(&mmc->sysconfig) | SYSCONFIG_SOFTRESET);
+	setbits32(&mmc->sysconfig, SYSCONFIG_SOFTRESET);
 
 	while (!(read32(&mmc->sysstatus) & SYSSTATUS_RESETDONE)) ;
 
 	// Set SD capabilities
-	write32(&mmc->capa, CAPA_VS30);
+	setbits32(&mmc->capa, CAPA_VS30);
 
-	write32(&mmc->hctl, HCTL_SDVS_VS30 | HCTL_DTW_1BIT);
+	setbits32(&mmc->hctl, HCTL_SDVS_VS30 | HCTL_DTW_1BIT);
 
 	// enable sd bus power
-	write32(&mmc->hctl, read32(&mmc->hctl) | HCTL_SDBP);
+	setbits32(&mmc->hctl, HCTL_SDBP);
 
 	while(!(read32(&mmc->hctl) & HCTL_SDBP)) ;
 
 	// set initial clock speed
 	// the input clock is at 96MHz so this puts it at 400 KHz
-	write32(&mmc->sysctl, read32(&mmc->sysctl) | 240 << 6);
+	// give a generous timeout
+	write32(&mmc->sysctl, read32(&mmc->sysctl) | 240 << 6 | SYSCTL_DTO_15);
 
 	// enable internal internal clock and clock to card
-	write32(&mmc->sysctl, read32(&mmc->sysctl) | SYSCTL_ICE | SYSCTL_CEN);
+	setbits32(&mmc->sysctl, SYSCTL_ICE | SYSCTL_CEN);
 
 	//wait for clock to be stable
 	while(!(read32(&mmc->sysctl) & SYSCTL_ICS)) ;
 
-	//enable interrupts
-	write32(&mmc->ie, 0xffffffffu);
+	// enable command complete interrupt only
+	write32(&mmc->ie, IE_ERRORS | IE_TC | IE_CC);
 
 	//clear interrupts
 	write32(&mmc->stat, 0xffffffffu);
 
 	// card detection, identification and selection
-	write32(&mmc->con, read32(&mmc->con) | CON_INIT);
+	setbits32(&mmc->con, CON_INIT);
 
 	write32(&mmc->cmd, 0x00);
 
@@ -54,7 +55,7 @@ static int am335x_mmc_init(struct am335x_mmc *mmc)
 	write32(&mmc->stat, 0xffffffffu);
 
 	// finish initialisation
-	write32(&mmc->con, read32(&mmc->con) & ~CON_INIT);
+	clrbits32(&mmc->con, CON_INIT);
 
 	return 0;
 }
@@ -77,9 +78,9 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 
 	if (data) {
 		if (data->flags & DATA_FLAG_READ) {
-			write32(&mmc->reg->ie, IE_BRR);
+			setbits32(&mmc->reg->ie, IE_BRR);
 			write32(&mmc->reg->blk, data->blocksize);
-			transfer_type |= DP_DATA | DDIR_READ;
+			transfer_type |= CMD_DP_DATA | CMD_DDIR_READ;
 		}
 		
 		if (data->flags & DATA_FLAG_WRITE) {
@@ -90,17 +91,17 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 
 	switch (cmd->resp_type) {
 		case CARD_RSP_R1b:
-			transfer_type |= RSP_TYPE_48B_BUSY;
+			transfer_type |= CMD_RSP_TYPE_48B_BUSY;
 			break;
 		case CARD_RSP_R1:
 		case CARD_RSP_R3:
-			transfer_type |= RSP_TYPE_48B;
+			transfer_type |= CMD_RSP_TYPE_48B;
 			break;
 		case CARD_RSP_R2:
-			transfer_type |= RSP_TYPE_136B;
+			transfer_type |= CMD_RSP_TYPE_136B;
 			break;
 		case CARD_RSP_NONE:
-			transfer_type |= RSP_TYPE_NO_RESP;
+			transfer_type |= CMD_RSP_TYPE_NO_RESP;
 			break;
 		default:
 			printk(BIOS_ERR, "SD: Unknown response type\n");
@@ -118,7 +119,7 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 	// Wait for any interrupt
 	while (!read32(&reg->stat))
 		;
-
+		
 	// Check to ensure that there wasn't any errors
 	if (read32(&reg->stat) & STAT_ERRI) {
 		printk(BIOS_WARNING, "Error while reading %08x\n", read32(&reg->stat));
@@ -163,8 +164,8 @@ static int am335x_send_cmd(struct sd_mmc_ctrlr *ctrlr, struct mmc_command *cmd, 
 			dest32++; 
 		}
 
-		setbits32(&reg->stat, IE_TC);
-		setbits32(&reg->stat, IE_BRR);
+		write32(&reg->stat, IE_TC);
+		write32(&reg->stat, IE_BRR);
 		clrbits32(&reg->ie, IE_BRR);
 	}
 
