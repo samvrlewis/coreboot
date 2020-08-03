@@ -97,6 +97,7 @@ static const struct region_device_ops am335x_sd_ops = {
 
 extern struct omap_image_headers headers;
 
+//change to CONFIG_ROM_SIZE?
 static struct mmap_helper_region_device sd_mdev =
 	MMAP_HELPER_REGION_INIT(&am335x_sd_ops, sizeof(headers), 22200*1024);
 
