@@ -1,6 +1,6 @@
 ## SPDX-License-Identifier: GPL-2.0-only
 
-if BOARD_TI_BEAGLEBONE
+if BOARD_TI_BEAGLEBONE_BLACK
 
 config BOARD_SPECIFIC_OPTIONS
 	def_bool y
@@ -10,11 +10,11 @@ config BOARD_SPECIFIC_OPTIONS
 
 config MAINBOARD_DIR
 	string
-	default "ti/beaglebone"
+	default "ti/beaglebone-black"
 
 config MAINBOARD_PART_NUMBER
 	string
-	default "Beaglebone"
+	default "Beaglebone Black"
 
 config MAX_CPUS
 	int
@@ -28,4 +28,4 @@ config UART_FOR_CONSOLE
 	int
 	default 0
 
-endif # BOARD_TI_BEAGLEBONE
+endif # BOARD_TI_BEAGLEBONE_BLACK
